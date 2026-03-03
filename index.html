@@ -1,76 +1,44 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css"/>
 </head>
-<body class="bg-slate-950 text-slate-200 font-sans pb-20 overflow-x-hidden">
+<body class="bg-slate-950 text-white font-sans p-4">
 
-    <nav class="flex justify-between items-center p-4 bg-slate-900 border-b border-slate-800 sticky top-0 z-50">
-        <span class="font-black text-blue-500 tracking-tighter">SHIFT.PRO</span>
-        <button onclick="checkAdmin()" class="text-xs bg-slate-800 px-3 py-1 rounded-full border border-slate-700">ADMIN ⚙️</button>
-    </nav>
-
-    <div class="flex p-2 bg-slate-900/50 gap-2 overflow-x-auto">
-        <button onclick="switchTab('daily')" class="tab-btn active bg-blue-600 px-4 py-2 rounded-xl text-xs font-bold transition-all">DAILY</button>
-        <button onclick="switchTab('weekly')" class="tab-btn bg-slate-800 px-4 py-2 rounded-xl text-xs font-bold transition-all">WEEKLY</button>
-        <button onclick="switchTab('monthly')" class="tab-btn bg-slate-800 px-4 py-2 rounded-xl text-xs font-bold transition-all">MONTHLY</button>
+    <div class="flex justify-between items-center mb-6">
+        <h1 class="text-xl font-black text-blue-500">DASHBOARD</h1>
+        <button onclick="openAdmin()" class="bg-slate-800 px-4 py-1 rounded-full text-xs">ADMIN ⚙️</button>
     </div>
 
-    <main class="p-4 space-y-6">
-        
-        <div id="summary" class="bg-gradient-to-br from-blue-600 to-indigo-800 p-6 rounded-[2rem] shadow-2xl relative overflow-hidden">
-            <div class="relative z-10">
-                <p class="text-xs font-bold opacity-70 uppercase">Current Performance</p>
-                <h2 id="display-total" class="text-4xl font-black mt-1">$0.00</h2>
-                <div class="w-full bg-white/20 h-2 rounded-full mt-4">
-                    <div id="progress-bar" class="bg-white h-full rounded-full transition-all duration-1000" style="width: 0%"></div>
-                </div>
-            </div>
-        </div>
+    <div class="bg-blue-600 p-8 rounded-[2rem] shadow-xl mb-6">
+        <p class="text-xs font-bold opacity-80">DAILY TOTAL</p>
+        <h2 id="total-val" class="text-5xl font-black">$0</h2>
+    </div>
 
-        <div class="bg-slate-900 p-4 rounded-3xl border border-slate-800">
-            <canvas id="mainChart"></canvas>
+    <div class="bg-slate-900 p-6 rounded-3xl border border-slate-800 space-y-4">
+        <input id="c_id" type="text" placeholder="Client ID" class="w-full p-4 bg-slate-800 rounded-2xl outline-none">
+        <input id="c_email" type="email" placeholder="Client Email" class="w-full p-4 bg-slate-800 rounded-2xl outline-none">
+        <input id="amount" type="number" placeholder="Amount ($)" class="w-full p-4 bg-slate-800 rounded-2xl outline-none">
+        <div class="grid grid-cols-2 gap-2">
+            <select id="type" class="p-4 bg-slate-800 rounded-2xl"><option>FTD</option><option>Deposit</option></select>
+            <select id="method" class="p-4 bg-slate-800 rounded-2xl"><option>Crypto</option><option>Wire</option><option>Stripe</option></select>
         </div>
+        <button onclick="sendDeal()" class="w-full bg-white text-black py-4 rounded-2xl font-bold">SUBMIT</button>
+    </div>
 
-        <div class="bg-slate-900 p-6 rounded-3xl border border-slate-800 space-y-4">
-            <h3 class="font-bold text-white flex items-center"><span class="mr-2">📝</span> Register Deal</h3>
-            <input id="c_id" type="text" placeholder="Client ID" class="w-full p-4 bg-slate-800 rounded-2xl outline-none focus:ring-2 ring-blue-500">
-            <input id="c_email" type="email" placeholder="Client Email" class="w-full p-4 bg-slate-800 rounded-2xl outline-none">
-            <input id="amount" type="number" placeholder="Amount ($)" class="w-full p-4 bg-slate-800 rounded-2xl outline-none">
-            
-            <div class="grid grid-cols-2 gap-3">
-                <select id="type" class="p-4 bg-slate-800 rounded-2xl outline-none border-r-8 border-transparent">
-                    <option>FTD</option>
-                    <option>Deposit</option>
-                </select>
-                <select id="method" class="p-4 bg-slate-800 rounded-2xl outline-none border-r-8 border-transparent">
-                    <option>Crypto</option>
-                    <option>Wire</option>
-                    <option>Stripe</option>
-                </select>
-            </div>
-            <button onclick="submitDeal()" class="w-full bg-white text-slate-950 py-4 rounded-2xl font-black text-lg active:scale-95 transition-all">SUBMIT DEAL</button>
+    <div id="admin-panel" class="fixed inset-0 bg-black/95 z-[100] hidden p-8">
+        <div class="flex justify-between items-center mb-10">
+            <h2 class="text-3xl font-bold text-red-500">ADMIN PANEL</h2>
+            <button onclick="closeAdmin()">✕</button>
         </div>
-    </main>
-
-    <div id="admin-panel" class="fixed inset-0 bg-slate-950 z-[100] hidden p-6 overflow-y-auto animate__animated animate__fadeInUp">
-        <div class="flex justify-between items-center mb-8">
-            <h1 class="text-2xl font-black">ADMIN CONTROLS</h1>
-            <button onclick="closeAdmin()" class="text-slate-400">CLOSE ✕</button>
-        </div>
-        <div class="space-y-4">
-            <div class="bg-slate-900 p-4 rounded-2xl border border-red-500/30">
-                <p class="text-xs text-slate-400 mb-2 uppercase">Global Target ($)</p>
-                <input id="target-input" type="number" value="10000" class="w-full bg-slate-800 p-3 rounded-xl outline-none">
-                <button onclick="saveTarget()" class="w-full bg-red-600 mt-4 py-3 rounded-xl font-bold">Update Goal</button>
+        <div class="space-y-6">
+            <div class="bg-slate-900 p-4 rounded-xl">
+                <p class="text-sm mb-2">Modify Target ($)</p>
+                <input id="target" type="number" class="w-full p-3 bg-slate-800 rounded-lg" value="10000">
             </div>
-            <div id="tx-history" class="space-y-2">
-                </div>
+            <p class="text-slate-500 italic text-sm">More admin tools (delete/edit) loading...</p>
         </div>
     </div>
 
@@ -78,62 +46,44 @@
         const tg = window.Telegram.WebApp;
         tg.expand();
 
-        let currentGoal = 10000;
+        function openAdmin() {
+            const pass = prompt("Enter Admin Password:");
+            if (pass === "13012") {
+                document.getElementById('admin-panel').classList.remove('hidden');
+                tg.HapticFeedback.impactOccurred('heavy');
+            } else {
+                alert("Access Denied");
+            }
+        }
 
-        async function submitDeal() {
-            const amount = parseFloat(document.getElementById('amount').value);
+        function closeAdmin() {
+            document.getElementById('admin-panel').classList.add('hidden');
+        }
+
+        async function sendDeal() {
             const data = {
                 agent_name: tg.initDataUnsafe.user.first_name,
-                amount: amount,
                 client_id: document.getElementById('c_id').value,
                 client_email: document.getElementById('c_email').value,
+                amount: parseFloat(document.getElementById('amount').value),
                 deal_type: document.getElementById('type').value,
                 payment_method: document.getElementById('method').value
             };
-
-            const res = await fetch('/api/deal', {
+            await fetch('/api/deal', {
                 method: 'POST',
                 headers: {'Content-Type': 'application/json'},
                 body: JSON.stringify(data)
             });
-
-            if(amount >= 1000) triggerWhale(amount);
-            tg.HapticFeedback.notificationOccurred('success');
-            refreshData();
+            tg.showAlert("Deal Registered!");
+            updateStats();
         }
 
-        function triggerWhale(amt) {
-            const el = document.createElement('div');
-            el.className = "fixed top-20 left-0 w-full flex justify-center z-[200] animate__animated animate__jackInTheBox";
-            el.innerHTML = `<div class="bg-blue-600 p-8 rounded-full border-4 border-white shadow-[0_0_50px_rgba(37,99,235,0.8)] text-center">
-                <p class="text-xs font-bold text-blue-200">WHALE ALERT</p>
-                <h1 class="text-4xl font-black text-white">$${amt}</h1>
-            </div>`;
-            document.body.appendChild(el);
-            setTimeout(() => el.remove(), 4000);
-        }
-
-        function checkAdmin() {
-            const pass = prompt("Enter Admin Password:");
-            if(pass === "13012") {
-                document.getElementById('admin-panel').classList.remove('hidden');
-            } else {
-                tg.showAlert("Unauthorized Access");
-            }
-        }
-
-        function closeAdmin() { document.getElementById('admin-panel').classList.add('hidden'); }
-
-        async function refreshData() {
+        async function updateStats() {
             const res = await fetch('/api/stats');
             const data = await res.json();
-            document.getElementById('display-total').innerText = `$${data.daily.toLocaleString()}`;
-            const progress = (data.daily / currentGoal) * 100;
-            document.getElementById('progress-bar').style.width = `${Math.min(progress, 100)}%`;
+            document.getElementById('total-val').innerText = `$${data.total.toLocaleString()}`;
         }
-
-        setInterval(refreshData, 30000);
-        refreshData();
+        updateStats();
     </script>
 </body>
 </html>
