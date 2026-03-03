@@ -1,89 +1,302 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css"/>
+    <style>
+        .page { display: none; padding-bottom: 80px; }
+        .page.active { display: block; animation: fadeIn 0.3s; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        .nav-item.active { color: #3b82f6; }
+    </style>
 </head>
-<body class="bg-slate-950 text-white font-sans p-4">
+<body class="bg-slate-950 text-slate-200 font-sans h-screen overflow-y-auto">
 
-    <div class="flex justify-between items-center mb-6">
-        <h1 class="text-xl font-black text-blue-500">DASHBOARD</h1>
-        <button onclick="openAdmin()" class="bg-slate-800 px-4 py-1 rounded-full text-xs">ADMIN ⚙️</button>
+    <div class="sticky top-0 z-50 bg-slate-900/90 backdrop-blur border-b border-slate-800 p-4 flex justify-between items-center">
+        <h1 class="font-black text-xl text-blue-500 tracking-tighter">SHIFT<span class="text-white">PRO</span></h1>
+        <button onclick="openAdmin()" class="bg-slate-800 px-3 py-1 rounded-full text-xs font-bold shadow">ADMIN ⚙️</button>
     </div>
 
-    <div class="bg-blue-600 p-8 rounded-[2rem] shadow-xl mb-6">
-        <p class="text-xs font-bold opacity-80">DAILY TOTAL</p>
-        <h2 id="total-val" class="text-5xl font-black">$0</h2>
-    </div>
-
-    <div class="bg-slate-900 p-6 rounded-3xl border border-slate-800 space-y-4">
-        <input id="c_id" type="text" placeholder="Client ID" class="w-full p-4 bg-slate-800 rounded-2xl outline-none">
-        <input id="c_email" type="email" placeholder="Client Email" class="w-full p-4 bg-slate-800 rounded-2xl outline-none">
-        <input id="amount" type="number" placeholder="Amount ($)" class="w-full p-4 bg-slate-800 rounded-2xl outline-none">
-        <div class="grid grid-cols-2 gap-2">
-            <select id="type" class="p-4 bg-slate-800 rounded-2xl"><option>FTD</option><option>Deposit</option></select>
-            <select id="method" class="p-4 bg-slate-800 rounded-2xl"><option>Crypto</option><option>Wire</option><option>Stripe</option></select>
-        </div>
-        <button onclick="sendDeal()" class="w-full bg-white text-black py-4 rounded-2xl font-bold">SUBMIT</button>
-    </div>
-
-    <div id="admin-panel" class="fixed inset-0 bg-black/95 z-[100] hidden p-8">
-        <div class="flex justify-between items-center mb-10">
-            <h2 class="text-3xl font-bold text-red-500">ADMIN PANEL</h2>
-            <button onclick="closeAdmin()">✕</button>
-        </div>
-        <div class="space-y-6">
-            <div class="bg-slate-900 p-4 rounded-xl">
-                <p class="text-sm mb-2">Modify Target ($)</p>
-                <input id="target" type="number" class="w-full p-3 bg-slate-800 rounded-lg" value="10000">
+    <div id="page-home" class="page active p-4 space-y-6">
+        <div class="bg-gradient-to-br from-blue-600 to-indigo-800 p-6 rounded-3xl shadow-lg relative overflow-hidden">
+            <p class="text-blue-200 font-bold text-sm">TODAY'S REVENUE</p>
+            <h2 id="daily-total" class="text-5xl font-black text-white mt-1">$0</h2>
+            <div class="mt-4 bg-black/20 rounded-full h-3">
+                <div id="goal-bar" class="bg-white h-3 rounded-full transition-all duration-1000" style="width: 0%"></div>
             </div>
-            <p class="text-slate-500 italic text-sm">More admin tools (delete/edit) loading...</p>
+            <p class="text-xs text-blue-200 mt-2 text-right">Goal: $10,000</p>
+        </div>
+
+        <div>
+            <div class="flex justify-between items-end mb-4">
+                <h3 class="font-bold text-lg">Today's Deals</h3>
+                <span id="daily-count" class="text-xs bg-blue-500/20 text-blue-400 px-2 py-1 rounded-md">0 Deals</span>
+            </div>
+            <div id="daily-list" class="space-y-3">
+                <p class="text-slate-500 text-sm italic text-center py-4">No deals registered today.</p>
+            </div>
+        </div>
+    </div>
+
+    <div id="page-stats" class="page p-4 space-y-6">
+        <div class="flex bg-slate-900 rounded-xl p-1">
+            <button onclick="toggleStats('weekly')" id="tab-weekly" class="flex-1 py-2 text-sm font-bold bg-blue-600 rounded-lg transition">WEEKLY</button>
+            <button onclick="toggleStats('monthly')" id="tab-monthly" class="flex-1 py-2 text-sm font-bold rounded-lg transition">MONTHLY</button>
+        </div>
+
+        <div class="bg-slate-900 p-6 rounded-3xl border border-slate-800 text-center">
+            <p id="stats-label" class="text-slate-400 font-bold text-sm uppercase">Weekly Total</p>
+            <h2 id="stats-total" class="text-4xl font-black text-blue-400 mt-1">$0</h2>
+        </div>
+
+        <div>
+            <h3 class="font-bold text-lg mb-4 flex items-center gap-2">🏆 Leaderboard</h3>
+            <div id="leaderboard-list" class="space-y-3"></div>
+        </div>
+    </div>
+
+    <div id="page-breaks" class="page p-4 space-y-6">
+        <div class="grid grid-cols-2 gap-4">
+            <button onclick="takeBreak(45)" class="bg-slate-900 border border-orange-500/30 p-4 rounded-2xl active:scale-95 transition">
+                <span class="text-3xl block mb-2">🍔</span>
+                <span class="font-bold text-orange-400">Big Break</span>
+                <span class="block text-xs text-slate-400">45 Mins</span>
+            </button>
+            <button onclick="takeBreak(15)" class="bg-slate-900 border border-blue-500/30 p-4 rounded-2xl active:scale-95 transition">
+                <span class="text-3xl block mb-2">☕</span>
+                <span class="font-bold text-blue-400">Small Break</span>
+                <span class="block text-xs text-slate-400">15 Mins</span>
+            </button>
+        </div>
+
+        <div class="bg-slate-900 p-5 rounded-3xl border border-slate-800">
+            <h3 class="font-bold text-lg mb-4 flex justify-between items-center">
+                <span>Currently on Break</span>
+                <button onclick="endMyBreak()" class="text-xs bg-red-500/20 text-red-400 px-3 py-1 rounded-full">End My Break</button>
+            </h3>
+            <div id="breaks-list" class="space-y-3">
+                <p class="text-slate-500 text-sm italic text-center py-4">Everyone is working! 🚀</p>
+            </div>
+        </div>
+    </div>
+
+    <div class="fixed bottom-0 w-full bg-slate-900/95 backdrop-blur border-t border-slate-800 flex justify-around items-center p-2 pb-safe z-50">
+        <button onclick="nav('home')" id="nav-home" class="nav-item active flex flex-col items-center p-2 w-16">
+            <span class="text-xl mb-1">🏠</span><span class="text-[10px] font-bold">HOME</span>
+        </button>
+        <button onclick="nav('stats')" id="nav-stats" class="nav-item flex flex-col items-center p-2 w-16 text-slate-500">
+            <span class="text-xl mb-1">📊</span><span class="text-[10px] font-bold">STATS</span>
+        </button>
+        <button onclick="nav('breaks')" id="nav-breaks" class="nav-item flex flex-col items-center p-2 w-16 text-slate-500">
+            <span class="text-xl mb-1">☕</span><span class="text-[10px] font-bold">BREAKS</span>
+        </button>
+    </div>
+
+    <button onclick="openDealForm()" class="fixed bottom-24 right-6 bg-blue-600 text-white w-14 h-14 rounded-full shadow-[0_0_20px_rgba(37,99,235,0.5)] flex justify-center items-center text-3xl z-40 hover:bg-blue-500 active:scale-90 transition-all">
+        +
+    </button>
+
+    <div id="modal-deal" class="fixed inset-0 bg-slate-950 z-[100] hidden flex-col animate__animated animate__slideInUp">
+        <div class="p-4 border-b border-slate-800 flex justify-between items-center bg-slate-900">
+            <h2 class="text-xl font-bold">Register Deal</h2>
+            <button onclick="closeDealForm()" class="text-slate-400 p-2">✕</button>
+        </div>
+        <div class="p-6 space-y-4 overflow-y-auto">
+            <input id="c_id" type="text" placeholder="Client ID" class="w-full p-4 bg-slate-900 rounded-2xl outline-none border border-slate-800 focus:border-blue-500">
+            <input id="c_email" type="email" placeholder="Client Email" class="w-full p-4 bg-slate-900 rounded-2xl outline-none border border-slate-800 focus:border-blue-500">
+            <input id="amount" type="number" placeholder="Amount ($)" class="w-full p-4 bg-slate-900 rounded-2xl outline-none border border-slate-800 focus:border-blue-500">
+            <div class="grid grid-cols-2 gap-3">
+                <select id="type" class="p-4 bg-slate-900 rounded-2xl outline-none border border-slate-800"><option>FTD</option><option>Deposit</option></select>
+                <select id="method" class="p-4 bg-slate-900 rounded-2xl outline-none border border-slate-800"><option>Crypto</option><option>Wire</option><option>Stripe</option></select>
+            </div>
+            <button onclick="submitDeal()" class="w-full bg-blue-600 text-white py-4 rounded-2xl font-black text-lg mt-4 active:scale-95 transition-transform">SUBMIT</button>
+        </div>
+    </div>
+
+    <div id="admin-panel" class="fixed inset-0 bg-slate-950 z-[100] hidden p-6 flex-col animate__animated animate__fadeIn">
+        <div class="flex justify-between items-center mb-8">
+            <h2 class="text-2xl font-black text-red-500">ADMIN PANEL</h2>
+            <button onclick="document.getElementById('admin-panel').classList.add('hidden')" class="text-slate-400">✕</button>
+        </div>
+        <div class="bg-slate-900 p-6 rounded-2xl border border-slate-800">
+            <h3 class="font-bold mb-4">Export Data</h3>
+            <p class="text-sm text-slate-400 mb-4">Download all deals as a CSV spreadsheet.</p>
+            <button onclick="exportCSV()" class="w-full bg-emerald-600 py-3 rounded-xl font-bold flex justify-center items-center gap-2">
+                <span>⬇️</span> Download CSV
+            </button>
         </div>
     </div>
 
     <script>
         const tg = window.Telegram.WebApp;
         tg.expand();
+        tg.setHeaderColor('#0f172a');
+        
+        let dashboardData = null;
+        let activeStatsView = 'weekly';
+        let breakInterval = null;
 
+        // Navigation Logic
+        function nav(pageId) {
+            document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+            document.querySelectorAll('.nav-item').forEach(n => {
+                n.classList.remove('active');
+                n.classList.add('text-slate-500');
+            });
+            
+            document.getElementById(`page-${pageId}`).classList.add('active');
+            const activeNav = document.getElementById(`nav-${pageId}`);
+            activeNav.classList.add('active');
+            activeNav.classList.remove('text-slate-500');
+            tg.HapticFeedback.selectionChanged();
+        }
+
+        // Modals
+        function openDealForm() { document.getElementById('modal-deal').classList.replace('hidden', 'flex'); }
+        function closeDealForm() { document.getElementById('modal-deal').classList.replace('flex', 'hidden'); }
+        
         function openAdmin() {
-            const pass = prompt("Enter Admin Password:");
-            if (pass === "13012") {
+            if(prompt("Admin Password:") === "13012") {
                 document.getElementById('admin-panel').classList.remove('hidden');
-                tg.HapticFeedback.impactOccurred('heavy');
+                tg.HapticFeedback.notificationOccurred('success');
             } else {
-                alert("Access Denied");
+                tg.showAlert("Access Denied");
             }
         }
 
-        function closeAdmin() {
-            document.getElementById('admin-panel').classList.add('hidden');
-        }
-
-        async function sendDeal() {
+        // Deal Logic
+        async function submitDeal() {
             const data = {
-                agent_name: tg.initDataUnsafe.user.first_name,
+                agent_name: tg.initDataUnsafe.user?.first_name || "Agent",
+                amount: parseFloat(document.getElementById('amount').value),
                 client_id: document.getElementById('c_id').value,
                 client_email: document.getElementById('c_email').value,
-                amount: parseFloat(document.getElementById('amount').value),
                 deal_type: document.getElementById('type').value,
                 payment_method: document.getElementById('method').value
             };
-            await fetch('/api/deal', {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify(data)
-            });
-            tg.showAlert("Deal Registered!");
-            updateStats();
+            
+            if(!data.amount || !data.client_id) return tg.showAlert("Please fill out amount and client ID.");
+
+            await fetch('/api/deal', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(data) });
+            closeDealForm();
+            tg.HapticFeedback.notificationOccurred('success');
+            if(data.amount >= 1000) tg.showPopup({title: '🐋 WHALE ALERT', message: `$${data.amount} DEAL!`, buttons: [{type: 'ok'}]});
+            
+            // Clear form
+            document.getElementById('amount').value = ''; document.getElementById('c_id').value = ''; document.getElementById('c_email').value = '';
+            fetchData();
         }
 
-        async function updateStats() {
-            const res = await fetch('/api/stats');
-            const data = await res.json();
-            document.getElementById('total-val').innerText = `$${data.total.toLocaleString()}`;
+        // Fetch & Render Logic
+        async function fetchData() {
+            const res = await fetch('/api/dashboard');
+            dashboardData = await res.json();
+            renderHome();
+            renderStats();
+            renderBreaks();
         }
-        updateStats();
+
+        function renderHome() {
+            const d = dashboardData.daily;
+            document.getElementById('daily-total').innerText = `$${d.total.toLocaleString()}`;
+            document.getElementById('goal-bar').style.width = `${Math.min((d.total / 10000) * 100, 100)}%`;
+            document.getElementById('daily-count').innerText = `${d.deals.length} Deals`;
+            
+            const list = document.getElementById('daily-list');
+            list.innerHTML = d.deals.length ? d.deals.reverse().map(deal => `
+                <div class="bg-slate-900 p-4 rounded-2xl border border-slate-800 flex justify-between items-center">
+                    <div>
+                        <p class="font-bold text-sm">${deal.agent_name}</p>
+                        <p class="text-xs text-slate-400">${deal.deal_type} • ${deal.payment_method}</p>
+                    </div>
+                    <div class="text-right">
+                        <p class="font-black text-emerald-400 text-lg">+$${deal.amount.toLocaleString()}</p>
+                        <p class="text-[10px] text-slate-500">${new Date(deal.created_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</p>
+                    </div>
+                </div>
+            `).join('') : `<p class="text-slate-500 text-sm italic text-center py-4">No deals registered today.</p>`;
+        }
+
+        function toggleStats(period) {
+            activeStatsView = period;
+            document.getElementById('tab-weekly').className = period === 'weekly' ? 'flex-1 py-2 text-sm font-bold bg-blue-600 rounded-lg transition' : 'flex-1 py-2 text-sm font-bold rounded-lg transition';
+            document.getElementById('tab-monthly').className = period === 'monthly' ? 'flex-1 py-2 text-sm font-bold bg-blue-600 rounded-lg transition' : 'flex-1 py-2 text-sm font-bold rounded-lg transition';
+            renderStats();
+        }
+
+        function renderStats() {
+            if(!dashboardData) return;
+            const d = dashboardData[activeStatsView];
+            document.getElementById('stats-label').innerText = `${activeStatsView} Total`;
+            document.getElementById('stats-total').innerText = `$${d.total.toLocaleString()}`;
+
+            // Leaderboard Logic
+            let agentTotals = {};
+            d.deals.forEach(deal => { agentTotals[deal.agent_name] = (agentTotals[deal.agent_name] || 0) + deal.amount; });
+            const sorted = Object.entries(agentTotals).sort((a, b) => b[1] - a[1]);
+            
+            const medals = ['🥇', '🥈', '🥉'];
+            document.getElementById('leaderboard-list').innerHTML = sorted.length ? sorted.map(([name, total], i) => `
+                <div class="flex justify-between items-center bg-slate-900 p-3 rounded-xl border border-slate-800">
+                    <span class="font-bold text-sm flex items-center gap-2">${medals[i] || `${i+1}.`} ${name}</span>
+                    <span class="font-mono text-emerald-400 font-bold">$${total.toLocaleString()}</span>
+                </div>
+            `).join('') : '<p class="text-slate-500 text-sm text-center">No data yet.</p>';
+        }
+
+        // Breaks Logic
+        async function takeBreak(mins) {
+            const data = { user_id: tg.initDataUnsafe.user?.id || 1, agent_name: tg.initDataUnsafe.user?.first_name || "Agent", duration: mins };
+            await fetch('/api/break', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(data) });
+            tg.showAlert(`Break started! You have ${mins} minutes.`);
+            fetchData();
+        }
+
+        async function endMyBreak() {
+            await fetch('/api/break/end', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({user_id: tg.initDataUnsafe.user?.id || 1}) });
+            fetchData();
+        }
+
+        function renderBreaks() {
+            if(breakInterval) clearInterval(breakInterval);
+            const list = document.getElementById('breaks-list');
+            const breaks = dashboardData.active_breaks;
+            
+            if(!breaks.length) {
+                list.innerHTML = `<p class="text-slate-500 text-sm italic text-center py-4">Everyone is working! 🚀</p>`;
+                return;
+            }
+
+            function updateTimers() {
+                list.innerHTML = breaks.map(b => {
+                    const start = new Date(b.start_time).getTime();
+                    const end = start + (b.duration * 60000);
+                    const left = Math.max(0, end - Date.now());
+                    const m = Math.floor(left / 60000);
+                    const s = Math.floor((left % 60000) / 1000);
+                    const color = left < 60000 ? 'text-red-500' : 'text-orange-400';
+                    return `
+                        <div class="flex justify-between items-center bg-slate-950 p-3 rounded-xl border border-slate-800">
+                            <span class="font-bold text-sm">☕ ${b.agent_name}</span>
+                            <span class="font-mono font-bold ${color} tabular-nums">${m}:${s.toString().padStart(2, '0')}</span>
+                        </div>
+                    `;
+                }).join('');
+            }
+            updateTimers();
+            breakInterval = setInterval(updateTimers, 1000);
+        }
+
+        function exportCSV() {
+            window.open(`/api/admin/export?password=13012`, '_blank');
+        }
+
+        // Initialize
+        fetchData();
+        setInterval(fetchData, 15000); // Auto refresh every 15s
     </script>
 </body>
 </html>
