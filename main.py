@@ -8,9 +8,8 @@ import uvicorn
 app = FastAPI()
 
 # --- CONNECTION ---
-# Replace these or use Render Environment Variables
-SUPABASE_URL = os.environ.get("SUPABASE_URL", "https://wcuccijzzxwnnytkxhvz.supabase.co")
-SUPABASE_KEY = os.environ.get("SUPABASE_KEY", "sb_publishable_LztBUE9jjqGQcduPJPvSUg_lBgZVxef")
+SUPABASE_URL = os.environ.get("SUPABASE_URL")
+SUPABASE_KEY = os.environ.get("SUPABASE_KEY")
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
 class Deal(BaseModel):
@@ -25,6 +24,9 @@ class AdminUpdate(BaseModel):
     agent_name: str
     amount: float
     client_id: str
+    client_email: str
+    deal_type: str
+    payment_method: str
 
 @app.get("/", response_class=HTMLResponse)
 async def home():
