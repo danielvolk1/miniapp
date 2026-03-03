@@ -3,22 +3,14 @@ from fastapi import FastAPI, HTTPException
 from fastapi.responses import HTMLResponse
 from pydantic import BaseModel
 from supabase import create_client, Client
+from datetime import datetime
 import uvicorn
 
 app = FastAPI()
 
-# --- CONNECTION ---
 SUPABASE_URL = os.environ.get("SUPABASE_URL")
 SUPABASE_KEY = os.environ.get("SUPABASE_KEY")
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
-
-class Deal(BaseModel):
-    agent_name: str
-    amount: float
-    client_id: str
-    client_email: str
-    deal_type: str 
-    payment_method: str
 
 class AdminUpdate(BaseModel):
     agent_name: str
@@ -38,14 +30,15 @@ async def get_dashboard():
     try:
         deals = supabase.table("deals").select("*").order('created_at', desc=True).execute().data
         breaks = supabase.table("active_breaks").select("*").execute().data
+        history = supabase.table("break_history").select("*").order('started_at', desc=True).limit(20).execute().data
         config = supabase.table("settings").select("value").eq("key", "shift_config").execute().data[0]['value']
-        return {"deals": deals, "active_breaks": breaks, "config": config}
+        return {"deals": deals, "active_breaks": breaks, "history": history, "config": config}
     except Exception as e:
         return {"error": str(e)}
 
 @app.post("/api/deal")
-async def add_deal(deal: Deal):
-    supabase.table("deals").insert(deal.model_dump()).execute()
+async def add_deal(deal: dict):
+    supabase.table("deals").insert(deal).execute()
     return {"status": "success"}
 
 @app.post("/api/break")
@@ -55,10 +48,25 @@ async def start_break(data: dict):
 
 @app.post("/api/break/end")
 async def end_break(data: dict):
+    # Log to history before deleting
+    b = supabase.table("active_breaks").select("*").eq("user_id", data["user_id"]).execute().data
+    if b:
+        supabase.table("break_history").insert({
+            "agent_name": b[0]['agent_name'],
+            "duration": b[0]['duration'],
+            "started_at": b[0]['start_time']
+        }).execute()
     supabase.table("active_breaks").delete().eq("user_id", data["user_id"]).execute()
     return {"status": "success"}
 
-# --- ADMIN ACTIONS ---
+# --- ADMIN POWER ---
+@app.post("/api/admin/reset-breaks")
+async def reset_breaks(data: dict):
+    if data.get("password") != "13012": raise HTTPException(status_code=403)
+    supabase.table("active_breaks").delete().neq("user_id", 0).execute() # Clear all active
+    # If using banks, you'd reset the bank table here
+    return {"status": "reset_done"}
+
 @app.delete("/api/admin/deal/{id}")
 async def delete_deal(id: int, password: str):
     if password != "13012": raise HTTPException(status_code=403)
@@ -78,5 +86,4 @@ async def set_config(data: dict):
     return {"status": "ok"}
 
 if __name__ == "__main__":
-    port = int(os.environ.get("PORT", 10000))
-    uvicorn.run(app, host="0.0.0.0", port=port)
+    uvicorn.run(app, host="0.0.0.0", port=int(os.environ.get("PORT", 10000)))
