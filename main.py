@@ -3,7 +3,6 @@ from fastapi import FastAPI, HTTPException
 from fastapi.responses import HTMLResponse
 from pydantic import BaseModel
 from supabase import create_client, Client
-from datetime import datetime
 import uvicorn
 
 app = FastAPI()
@@ -29,9 +28,8 @@ async def home():
 async def get_dashboard():
     deals = supabase.table("deals").select("*").order('created_at', desc=True).execute().data
     breaks = supabase.table("active_breaks").select("*").execute().data
-    history = supabase.table("break_history").select("*").order('started_at', desc=True).limit(30).execute().data
     config = supabase.table("settings").select("value").eq("key", "shift_config").execute().data[0]['value']
-    return {"deals": deals, "active_breaks": breaks, "history": history, "config": config}
+    return {"deals": deals, "active_breaks": breaks, "config": config}
 
 @app.post("/api/deal")
 async def add_deal(deal: DealModel):
@@ -50,31 +48,10 @@ async def delete_deal(id: int, password: str):
     supabase.table("deals").delete().eq("id", id).execute()
     return {"status": "ok"}
 
-@app.post("/api/break")
-async def start_break(data: dict):
-    supabase.table("active_breaks").upsert(data).execute()
-    return {"status": "success"}
-
 @app.post("/api/break/end")
 async def end_break(data: dict):
-    b = supabase.table("active_breaks").select("*").eq("user_id", data["user_id"]).execute().data
-    if b:
-        supabase.table("break_history").insert({
-            "agent_name": b[0]['agent_name'],
-            "duration": b[0]['duration'],
-            "started_at": b[0]['start_time']
-        }).execute()
     supabase.table("active_breaks").delete().eq("user_id", data["user_id"]).execute()
     return {"status": "success"}
-
-@app.post("/api/admin/reset-breaks")
-async def reset_breaks(data: dict):
-    if data.get("password") != "13012": raise HTTPException(status_code=403)
-    if data.get("user_id"):
-        supabase.table("active_breaks").delete().eq("user_id", data["user_id"]).execute()
-    else:
-        supabase.table("active_breaks").delete().neq("user_id", 0).execute()
-    return {"status": "ok"}
 
 @app.post("/api/admin/config")
 async def set_config(data: dict):
