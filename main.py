@@ -33,8 +33,8 @@ async def delete_tx(tx_id: int, password: str):
 import os
 from supabase import create_client, Client
 
-url = "YOUR_SUPABASE_URL"
-key = "YOUR_SUPABASE_KEY"
+url = "https://wcuccijzzxwnnytkxhvz.supabase.co"
+key = "sb_publishable_LztBUE9jjqGQcduPJPvSUg_lBgZVxef"
 supabase: Client = create_client(url, key)
 
 @app.post("/api/deal")
@@ -42,3 +42,4 @@ async def add_deal(deal: Deal):
     # This saves the deal FOREVER in Supabase
     supabase.table("deals").insert(deal.dict()).execute()
     return {"status": "success"}
+
