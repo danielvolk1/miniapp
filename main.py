@@ -1,53 +1,32 @@
-from fastapi import FastAPI, Request
-from fastapi.responses import HTMLResponse
+from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
-from typing import Dict, List
+from datetime import datetime, timedelta
+import uvicorn
 
 app = FastAPI()
 
-# Integrated State
-state = {
-    "goal": 10000,
-    "results": [],
-    "agents_data": {} 
+# Temporary Mock Database (Replace with Supabase for production)
+db = {
+    "transactions": [], # Each: {id, agent, amount, date, client_id...}
+    "targets": {"global": 10000, "agents": {}}
 }
 
-class Deal(BaseModel):
-    user_id: int
-    name: str
-    amount: float
-    type: str  # FTD / Deposit
-    method: str # Crypto / Wire / Stripe
-    client_email: str
-    client_id: str
+@app.get("/api/dashboard/{period}")
+async def get_dashboard(period: str):
+    # period can be 'daily', 'weekly', 'monthly'
+    now = datetime.now()
+    # Filter logic here...
+    return {"stats": "data", "total": 5000}
 
-@app.get("/", response_class=HTMLResponse)
-async def home():
-    with open("index.html", "r") as f:
-        return f.read()
-
-@app.get("/api/stats")
-async def get_stats():
-    # Group results by agent for the leaderboard
-    leaderboard = {}
-    for d in state["results"]:
-        name = d['name']
-        leaderboard[name] = leaderboard.get(name, 0) + d['amount']
-    
-    # Sort leaderboard: highest revenue first
-    sorted_leaderboard = dict(sorted(leaderboard.items(), key=lambda item: item[1], reverse=True))
-    
-    total_revenue = sum(d['amount'] for d in state["results"])
-    return {
-        "total": total_revenue,
-        "goal": state["goal"],
-        "leaderboard": sorted_leaderboard,
-        "recent_deals": state["results"][-5:] # Show last 5 deals
-    }
-
-@app.post("/api/deal")
-async def add_deal(deal: Deal):
-    state["results"].append(deal.dict())
+@app.post("/api/admin/update_target")
+async def update_target(data: dict):
+    if data.get("password") != "13012":
+        raise HTTPException(status_code=403, detail="Invalid Admin Password")
+    db["targets"]["global"] = data["new_target"]
     return {"status": "success"}
 
-# Keep the /api/break logic from the previous message
+@app.delete("/api/admin/transaction/{tx_id}")
+async def delete_tx(tx_id: int, password: str):
+    if password != "13012": raise HTTPException(status_code=403)
+    # Logic to remove transaction...
+    return {"status": "deleted"}
