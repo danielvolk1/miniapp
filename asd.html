@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-[#0f172a] text-slate-200 p-4 font-sans mb-20">
+    <div class="max-w-md mx-auto space-y-6">
+        
+        <div class="bg-slate-800/40 border border-blue-500/30 rounded-3xl p-5 shadow-2xl">
+            <h2 class="text-blue-400 font-black text-xs uppercase tracking-widest mb-4 flex justify-between">
+                <span>🏆 Leaderboard</span>
+                <span id="total-revenue" class="text-white">$0</span>
+            </h2>
+            <div id="leaderboard-list" class="space-y-3">
+                <p class="text-slate-500 text-sm italic text-center">No deals registered yet...</p>
+            </div>
+        </div>
+
+        <div class="bg-slate-800 p-6 rounded-3xl border border-slate-700">
+            <h2 class="text-white font-bold mb-5 italic">Register New Deal</h2>
+            <div class="space-y-4">
+                <input id="client_id" type="text" placeholder="Client ID" class="w-full p-4 bg-slate-900 rounded-xl border border-slate-600 outline-none focus:ring-2 ring-blue-500">
+                <input id="client_email" type="email" placeholder="Client Email" class="w-full p-4 bg-slate-900 rounded-xl border border-slate-600 outline-none focus:ring-2 ring-blue-500">
+                <input id="amount" type="number" placeholder="Amount ($)" class="w-full p-4 bg-slate-900 rounded-xl border border-slate-600 outline-none focus:ring-2 ring-blue-500">
+                
+                <div class="grid grid-cols-2 gap-2">
+                    <select id="type" class="p-4 bg-slate-900 rounded-xl border border-slate-600 outline-none">
+                        <option>FTD</option>
+                        <option>Deposit</option>
+                    </select>
+                    <select id="method" class="p-4 bg-slate-900 rounded-xl border border-slate-600 outline-none">
+                        <option>Crypto</option>
+                        <option>Wire</option>
+                        <option>Stripe</option>
+                    </select>
+                </div>
+                
+                <button onclick="submitDeal()" class="w-full bg-blue-600 text-white py-4 rounded-xl font-black text-lg active:scale-95 transition-transform">🚀 SUBMIT DEAL</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const tg = window.Telegram.WebApp;
+        tg.expand();
+
+        async function updateLeaderboard() {
+            const res = await fetch('/api/stats');
+            const data = await res.json();
+            document.getElementById('total-revenue').innerText = `$${data.total.toLocaleString()}`;
+            
+            const list = document.getElementById('leaderboard-list');
+            list.innerHTML = Object.entries(data.leaderboard).map(([name, total], index) => `
+                <div class="flex justify-between items-center bg-slate-900/50 p-3 rounded-xl border border-slate-700">
+                    <span class="text-sm font-bold">${index + 1}. ${name}</span>
+                    <span class="text-emerald-400 font-mono font-bold">$${total.toLocaleString()}</span>
+                </div>
+            `).join('');
+        }
+
+        async function submitDeal() {
+            const dealData = {
+                user_id: tg.initDataUnsafe.user.id,
+                name: tg.initDataUnsafe.user.first_name,
+                client_id: document.getElementById('client_id').value,
+                client_email: document.getElementById('client_email').value,
+                amount: parseFloat(document.getElementById('amount').value),
+                type: document.getElementById('type').value,
+                method: document.getElementById('method').value
+            };
+
+            await fetch('/api/deal', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(dealData)
+            });
+
+            tg.HapticFeedback.notificationOccurred('success');
+            tg.showAlert("Success! Check the leaderboard.");
+            updateLeaderboard();
+        }
+
+        // Auto-update stats every 30 seconds
+        setInterval(updateLeaderboard, 30000);
+        updateLeaderboard();
+    </script>
+</body>
+</html>
