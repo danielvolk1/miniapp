@@ -12,7 +12,7 @@ SUPABASE_URL = os.environ.get("SUPABASE_URL")
 SUPABASE_KEY = os.environ.get("SUPABASE_KEY")
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
-class AdminUpdate(BaseModel):
+class DealModel(BaseModel):
     agent_name: str
     amount: float
     client_id: str
@@ -27,19 +27,28 @@ async def home():
 
 @app.get("/api/dashboard")
 async def get_dashboard():
-    try:
-        deals = supabase.table("deals").select("*").order('created_at', desc=True).execute().data
-        breaks = supabase.table("active_breaks").select("*").execute().data
-        history = supabase.table("break_history").select("*").order('started_at', desc=True).limit(20).execute().data
-        config = supabase.table("settings").select("value").eq("key", "shift_config").execute().data[0]['value']
-        return {"deals": deals, "active_breaks": breaks, "history": history, "config": config}
-    except Exception as e:
-        return {"error": str(e)}
+    deals = supabase.table("deals").select("*").order('created_at', desc=True).execute().data
+    breaks = supabase.table("active_breaks").select("*").execute().data
+    history = supabase.table("break_history").select("*").order('started_at', desc=True).limit(30).execute().data
+    config = supabase.table("settings").select("value").eq("key", "shift_config").execute().data[0]['value']
+    return {"deals": deals, "active_breaks": breaks, "history": history, "config": config}
 
 @app.post("/api/deal")
-async def add_deal(deal: dict):
-    supabase.table("deals").insert(deal).execute()
+async def add_deal(deal: DealModel):
+    supabase.table("deals").insert(deal.model_dump()).execute()
     return {"status": "success"}
+
+@app.put("/api/admin/deal/{id}")
+async def update_deal(id: int, update: DealModel, password: str):
+    if password != "13012": raise HTTPException(status_code=403)
+    supabase.table("deals").update(update.model_dump()).eq("id", id).execute()
+    return {"status": "ok"}
+
+@app.delete("/api/admin/deal/{id}")
+async def delete_deal(id: int, password: str):
+    if password != "13012": raise HTTPException(status_code=403)
+    supabase.table("deals").delete().eq("id", id).execute()
+    return {"status": "ok"}
 
 @app.post("/api/break")
 async def start_break(data: dict):
@@ -48,7 +57,6 @@ async def start_break(data: dict):
 
 @app.post("/api/break/end")
 async def end_break(data: dict):
-    # Log to history before deleting
     b = supabase.table("active_breaks").select("*").eq("user_id", data["user_id"]).execute().data
     if b:
         supabase.table("break_history").insert({
@@ -59,24 +67,13 @@ async def end_break(data: dict):
     supabase.table("active_breaks").delete().eq("user_id", data["user_id"]).execute()
     return {"status": "success"}
 
-# --- ADMIN POWER ---
 @app.post("/api/admin/reset-breaks")
 async def reset_breaks(data: dict):
     if data.get("password") != "13012": raise HTTPException(status_code=403)
-    supabase.table("active_breaks").delete().neq("user_id", 0).execute() # Clear all active
-    # If using banks, you'd reset the bank table here
-    return {"status": "reset_done"}
-
-@app.delete("/api/admin/deal/{id}")
-async def delete_deal(id: int, password: str):
-    if password != "13012": raise HTTPException(status_code=403)
-    supabase.table("deals").delete().eq("id", id).execute()
-    return {"status": "ok"}
-
-@app.put("/api/admin/deal/{id}")
-async def update_deal(id: int, update: AdminUpdate, password: str):
-    if password != "13012": raise HTTPException(status_code=403)
-    supabase.table("deals").update(update.model_dump()).eq("id", id).execute()
+    if data.get("user_id"):
+        supabase.table("active_breaks").delete().eq("user_id", data["user_id"]).execute()
+    else:
+        supabase.table("active_breaks").delete().neq("user_id", 0).execute()
     return {"status": "ok"}
 
 @app.post("/api/admin/config")
