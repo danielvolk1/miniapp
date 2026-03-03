@@ -8,8 +8,8 @@ app = FastAPI()
 
 # --- SETUP SUPABASE ---
 # Add your actual keys here or as Render Environment Variables
-SUPABASE_URL = "YOUR_SUPABASE_URL" 
-SUPABASE_KEY = "YOUR_SUPABASE_ANON_KEY"
+SUPABASE_URL = "https://wcuccijzzxwnnytkxhvz.supabase.co" 
+SUPABASE_KEY = "sb_publishable_LztBUE9jjqGQcduPJPvSUg_lBgZVxef"
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
 class Deal(BaseModel):
@@ -48,3 +48,4 @@ async def get_stats():
         "total": sum(d['amount'] for d in deals),
         "all_deals": deals[-10:] # Last 10 deals for the feed
     }
+
