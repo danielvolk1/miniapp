@@ -48,10 +48,21 @@ async def delete_deal(id: int, password: str):
     supabase.table("deals").delete().eq("id", id).execute()
     return {"status": "ok"}
 
+@app.post("/api/break")
+async def start_break(data: dict):
+    supabase.table("active_breaks").upsert(data).execute()
+    return {"status": "success"}
+
 @app.post("/api/break/end")
 async def end_break(data: dict):
     supabase.table("active_breaks").delete().eq("user_id", data["user_id"]).execute()
     return {"status": "success"}
+
+@app.post("/api/admin/reset-breaks")
+async def reset_breaks(data: dict):
+    if data.get("password") != "13012": raise HTTPException(status_code=403)
+    supabase.table("active_breaks").delete().neq("user_id", 0).execute()
+    return {"status": "ok"}
 
 @app.post("/api/admin/config")
 async def set_config(data: dict):
