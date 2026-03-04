@@ -7,96 +7,139 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
     <style>
-        body { background: #020617; color: white; overflow-y: auto; -webkit-overflow-scrolling: touch; }
-        .page { display: none; padding: 10px; padding-bottom: 120px; }
+        :root { --bg: #0f172a; --panel: #1e293b; --text: #f8fafc; --accent: #3b82f6; }
+        .theme-green { --bg: #022c22; --panel: #064e3b; --text: #ecfdf5; --accent: #10b981; }
+        
+        body { background: var(--bg); color: var(--text); overflow-y: auto; -webkit-overflow-scrolling: touch; transition: all 0.3s; }
+        .panel { background: var(--panel); border: 1px solid rgba(255,255,255,0.05); }
+        .page { display: none; padding: 16px; padding-bottom: 120px; min-height: 100vh; }
         .page.active { display: block; }
-        /* Fix: Ensure inputs are always interactable */
+        
         input, select, textarea { 
             pointer-events: auto !important; 
             user-select: text !important;
-            background: #1e293b !important;
+            background: rgba(0,0,0,0.2) !important;
+            color: var(--text) !important;
             border: 1px solid rgba(255,255,255,0.1) !important;
         }
-        .nav-item.active { color: #3b82f6; }
-        .whale-card { border-left: 4px solid #f59e0b; background: rgba(245, 158, 11, 0.05); }
+        .nav-item.active { color: var(--accent); }
     </style>
 </head>
 <body class="font-sans">
 
-    <header class="flex justify-between items-center px-4 py-2 bg-slate-900/90 border-b border-white/5 sticky top-0 z-50 backdrop-blur-md">
-        <h1 class="font-black italic text-sm tracking-tighter">SHIFT<span class="text-blue-500">PRO</span></h1>
-        <div class="flex items-center gap-3">
-            <span id="header-total" class="text-xs font-bold text-blue-400">$0</span>
-            <button onclick="openAdmin()" class="bg-slate-800 p-1.5 rounded-lg text-[10px] font-bold">⚙️</button>
+    <header class="flex justify-between items-center px-4 py-3 panel sticky top-0 z-50 backdrop-blur-md">
+        <div class="flex flex-col">
+            <h1 class="font-black italic text-lg leading-tight">SHIFT<span style="color: var(--accent)">PRO</span></h1>
+            <span id="live-clock" class="text-[9px] opacity-70 font-mono">00:00:00</span>
+        </div>
+        <div class="flex items-center gap-2">
+            <button onclick="toggleTheme()" class="p-2 rounded-lg text-xs panel">🎨</button>
+            <button onclick="openAdmin()" class="bg-red-500/10 text-red-500 px-3 py-1.5 rounded-lg text-[10px] font-bold border border-red-500/20">ADMIN</button>
         </div>
     </header>
 
     <main id="page-home" class="page active">
-        <div class="bg-blue-600 p-6 rounded-3xl shadow-xl mb-4">
-            <p class="text-[10px] font-bold opacity-70 uppercase">Daily Revenue</p>
+        <div class="p-6 rounded-3xl shadow-xl mb-4 text-white" style="background: var(--accent)">
+            <p class="text-[10px] font-bold opacity-80 uppercase tracking-widest">Shift Total</p>
             <h2 id="h-total" class="text-4xl font-black mb-2">$0</h2>
-            <div class="bg-black/20 rounded-full h-1.5 mb-2"><div id="h-bar" class="bg-white h-full rounded-full transition-all duration-700 w-0"></div></div>
-            <p id="pace-tracker" class="text-[9px] font-medium opacity-80"></p>
+            <div class="bg-black/20 rounded-full h-1.5"><div id="h-bar" class="bg-white h-full rounded-full transition-all duration-700 w-0"></div></div>
         </div>
 
         <div class="flex gap-2 mb-4">
-            <input type="text" id="deal-search" oninput="renderHome()" placeholder="Search ID/Email..." class="flex-1 p-3 rounded-xl text-xs outline-none">
+            <input type="text" id="deal-search" oninput="saveSearch()" placeholder="🔍 Search ID/Email..." class="flex-1 p-3 rounded-xl text-sm outline-none">
+        </div>
+        
+        <div class="flex gap-2 mb-4 overflow-x-auto pb-1 hide-scrollbar">
+            <button onclick="setFilter('All')" class="px-4 py-2 rounded-xl text-[10px] font-bold panel whitespace-nowrap">ALL</button>
+            <button onclick="setFilter('Mine')" class="px-4 py-2 rounded-xl text-[10px] font-bold panel whitespace-nowrap text-blue-400">👤 MY DEALS</button>
+            <button onclick="setFilter('FTD')" class="px-4 py-2 rounded-xl text-[10px] font-bold panel whitespace-nowrap">FTDs</button>
         </div>
 
-        <div id="h-deals" class="space-y-2"></div>
+        <div id="h-deals" class="space-y-3"></div>
+        <p id="quote-footer" class="text-center text-[10px] opacity-40 mt-8 italic font-serif"></p>
     </main>
 
     <main id="page-stats" class="page">
-        <div class="grid grid-cols-2 gap-2 mb-4">
-            <div class="bg-slate-900 p-4 rounded-2xl border border-white/5">
-                <p class="text-[9px] text-slate-500 font-bold uppercase">Average Deal</p>
-                <p id="s-avg" class="text-lg font-black text-blue-400">$0</p>
+        <div class="grid grid-cols-2 gap-3 mb-6">
+            <div class="panel p-5 rounded-2xl">
+                <p class="text-[10px] opacity-50 font-bold uppercase">Avg Deal</p>
+                <p id="s-avg" class="text-xl font-black" style="color: var(--accent)">$0</p>
             </div>
-            <div class="bg-slate-900 p-4 rounded-2xl border border-white/5">
-                <p class="text-[9px] text-slate-500 font-bold uppercase">Deals Count</p>
-                <p id="s-count" class="text-lg font-black text-emerald-400">0</p>
+            <div class="panel p-5 rounded-2xl">
+                <p class="text-[10px] opacity-50 font-bold uppercase">Total Deals</p>
+                <p id="s-count" class="text-xl font-black text-emerald-400">0</p>
             </div>
         </div>
+        <h3 class="text-xs font-bold opacity-50 uppercase mb-3 ml-2">Leaderboard (Tap to filter)</h3>
         <div id="stats-container" class="space-y-2"></div>
     </main>
 
     <main id="page-breaks" class="page">
-        <div class="grid grid-cols-2 gap-2 mb-4">
-            <button onclick="takeBreak(15)" class="bg-slate-900 p-4 rounded-2xl border border-white/5 text-xs font-bold">☕ 15m Break</button>
-            <button onclick="takeBreak(45)" class="bg-slate-900 p-4 rounded-2xl border border-white/5 text-xs font-bold">🍔 45m Break</button>
+        <div class="grid grid-cols-2 gap-3 mb-6">
+            <button onclick="takeBreak(15)" class="panel p-6 rounded-3xl text-sm font-bold border-l-4 border-blue-500">☕ 15m Break</button>
+            <button onclick="takeBreak(45)" class="panel p-6 rounded-3xl text-sm font-bold border-l-4 border-orange-500">🍔 45m Break</button>
         </div>
-        <div class="bg-slate-900 rounded-2xl p-4 border border-white/5">
-            <h3 class="text-xs font-bold text-slate-500 uppercase mb-3">Active Timers</h3>
-            <div id="b-live" class="space-y-2"></div>
+        <div class="panel rounded-3xl p-5">
+            <h3 class="text-xs font-bold opacity-50 uppercase mb-4">Active Timers</h3>
+            <div id="b-live" class="space-y-3"></div>
         </div>
     </main>
 
-    <nav class="fixed bottom-0 w-full bg-slate-900/95 border-t border-white/5 flex justify-around py-3 pb-8 z-50 backdrop-blur-md">
-        <button onclick="nav('home')" id="n-home" class="nav-item active flex flex-col items-center gap-1"><span class="text-lg">🏠</span><span class="text-[9px] font-bold">HOME</span></button>
-        <button onclick="nav('stats')" id="n-stats" class="nav-item flex flex-col items-center gap-1"><span class="text-lg">📊</span><span class="text-[9px] font-bold">STATS</span></button>
-        <button onclick="nav('breaks')" id="n-breaks" class="nav-item flex flex-col items-center gap-1"><span class="text-lg">⏳</span><span class="text-[9px] font-bold">BREAKS</span></button>
+    <nav class="fixed bottom-0 w-full panel flex justify-around py-3 pb-8 z-50">
+        <button onclick="nav('home')" id="n-home" class="nav-item active flex flex-col items-center gap-1"><span class="text-xl">🏠</span><span class="text-[9px] font-bold">HOME</span></button>
+        <button onclick="nav('stats')" id="n-stats" class="nav-item flex flex-col items-center gap-1"><span class="text-xl">📊</span><span class="text-[9px] font-bold">STATS</span></button>
+        <button onclick="nav('breaks')" id="n-breaks" class="nav-item flex flex-col items-center gap-1"><span class="text-xl">⏳</span><span class="text-[9px] font-bold">BREAKS</span></button>
     </nav>
 
-    <button onclick="openDealModal()" class="fixed bottom-24 right-4 bg-blue-600 w-12 h-12 rounded-full shadow-2xl text-2xl z-40">+</button>
+    <button onclick="openDealModal()" class="fixed bottom-24 right-5 w-14 h-14 rounded-full shadow-xl text-3xl font-black flex items-center justify-center z-40 text-white" style="background: var(--accent)">+</button>
 
-    <div id="m-deal" class="fixed inset-0 bg-slate-950 z-[100] hidden p-6 overflow-y-auto">
-        <div class="flex justify-between items-center mb-6 text-sm font-bold"><span>TRANSACTION</span><button onclick="closeDealModal()">✕</button></div>
-        <div class="space-y-4">
-            <input id="f-cid" type="text" placeholder="Client ID" class="w-full p-4 rounded-xl outline-none">
-            <input id="f-email" type="email" placeholder="Client Email" class="w-full p-4 rounded-xl outline-none">
-            <input id="f-amt" type="number" placeholder="Amount ($)" class="w-full p-4 rounded-xl outline-none">
-            <div class="flex gap-2">
-                <select id="f-type" class="flex-1 p-4 rounded-xl"><option>FTD</option><option>Deposit</option></select>
-                <select id="f-method" class="flex-1 p-4 rounded-xl"><option>Crypto</option><option>Wire</option><option>Stripe</option></select>
+    <div id="m-deal" class="fixed inset-0 bg-black/90 z-[100] hidden p-5 overflow-y-auto backdrop-blur-sm">
+        <div class="panel p-6 rounded-[2rem] mt-10">
+            <div class="flex justify-between items-center mb-6"><h2 id="m-deal-title" class="text-xl font-black">Transaction</h2><button onclick="closeModal('m-deal')" class="text-xl">✕</button></div>
+            <div class="space-y-4">
+                <input id="f-cid" type="text" placeholder="Client ID" class="w-full p-4 rounded-xl">
+                <input id="f-email" type="email" placeholder="Client Email" class="w-full p-4 rounded-xl">
+                <input id="f-amt" type="number" placeholder="Amount ($)" class="w-full p-4 rounded-xl">
+                <div class="flex gap-2">
+                    <select id="f-type" class="flex-1 p-4 rounded-xl"><option>FTD</option><option>Deposit</option></select>
+                    <select id="f-method" class="flex-1 p-4 rounded-xl"><option>Crypto</option><option>Wire</option><option>Stripe</option></select>
+                </div>
+                <button id="deal-submit-btn" onclick="submitDeal()" class="w-full py-4 rounded-xl font-black text-white shadow-lg" style="background: var(--accent)">CONFIRM</button>
+                <button id="deal-copy-btn" onclick="copyDeal()" class="w-full bg-slate-700 py-3 rounded-xl font-bold text-sm hidden">📋 COPY TO CLIPBOARD</button>
+                <button id="deal-delete-btn" onclick="deleteDeal()" class="w-full bg-red-900/40 text-red-500 py-3 rounded-xl font-bold text-sm hidden border border-red-500/20">DELETE TRANSACTION</button>
             </div>
-            <button onclick="submitDeal()" class="w-full bg-blue-600 py-4 rounded-xl font-black text-sm">CONFIRM DEAL</button>
+        </div>
+    </div>
+
+    <div id="m-admin" class="fixed inset-0 bg-black/90 z-[200] hidden p-5 overflow-y-auto backdrop-blur-sm">
+        <div class="panel p-6 rounded-[2rem] mt-10 space-y-6">
+            <div class="flex justify-between items-center"><h2 class="text-xl font-black text-red-500">Admin Panel</h2><button onclick="closeModal('m-admin')" class="text-xl">✕</button></div>
+            
+            <div class="space-y-3">
+                <p class="text-[10px] font-bold opacity-50 uppercase">Settings</p>
+                <input id="a-goal" type="number" placeholder="Shift Goal ($)" class="w-full p-4 rounded-xl">
+                <button onclick="saveAdminConfig()" class="w-full py-3 rounded-xl font-bold text-white" style="background: var(--accent)">SAVE CONFIG</button>
+            </div>
+
+            <div class="space-y-3">
+                <p class="text-[10px] font-bold opacity-50 uppercase">Data & Control</p>
+                <button onclick="exportCSV()" class="w-full bg-emerald-600 py-3 rounded-xl font-bold text-white">📥 EXPORT CSV</button>
+                <button onclick="resetBreaks()" class="w-full bg-red-900/40 text-red-500 border border-red-500/20 py-3 rounded-xl font-bold">CLEAR ALL TIMERS</button>
+            </div>
         </div>
     </div>
 
     <script>
         const tg = window.Telegram.WebApp;
+        tg.expand();
         let cache = { deals: [], active_breaks: [], config: { goal: 10000 } };
-        let adminKey = "";
+        let adminPass = '';
+        let currentEditId = null;
+        let activeFilter = 'All';
+        let savedSearch = '';
+        
+        const quotes = ["Coffee is for closers.", "ABC: Always Be Closing.", "Don't sell features, sell results.", "Every 'no' gets you closer to a 'yes'."];
+        document.getElementById('quote-footer').innerText = `"${quotes[Math.floor(Math.random() * quotes.length)]}"`;
 
         async function refresh() {
             const res = await fetch('/api/dashboard');
@@ -106,25 +149,44 @@
             renderBreaks();
         }
 
+        function saveSearch() {
+            savedSearch = document.getElementById('deal-search').value.toLowerCase();
+            renderHome();
+        }
+
+        function setFilter(f) { activeFilter = f; renderHome(); }
+
+        function filterByAgent(name) {
+            document.getElementById('deal-search').value = name;
+            saveSearch();
+            nav('home');
+        }
+
         function renderHome() {
-            const search = document.getElementById('deal-search').value.toLowerCase();
-            const total = cache.deals.reduce((s, d) => s + d.amount, 0);
+            const myName = tg.initDataUnsafe.user?.first_name || "Agent";
+            const today = new Date().toISOString().split('T')[0];
+            let daily = cache.deals.filter(d => d.created_at.startsWith(today));
             
+            const total = daily.reduce((s, d) => s + d.amount, 0);
             document.getElementById('h-total').innerText = `$${total.toLocaleString()}`;
-            document.getElementById('header-total').innerText = `$${total.toLocaleString()}`;
             document.getElementById('h-bar').style.width = `${Math.min((total/cache.config.goal)*100, 100)}%`;
             
-            const list = cache.deals.filter(d => d.client_id.toLowerCase().includes(search) || d.client_email.toLowerCase().includes(search));
-            
-            document.getElementById('h-deals').innerHTML = list.map(d => `
-                <div class="bg-slate-900/50 p-4 rounded-2xl flex justify-between items-center border border-white/5 ${d.amount >= 1000 ? 'whale-card' : ''}">
+            if(savedSearch) daily = daily.filter(d => d.client_id.toLowerCase().includes(savedSearch) || d.client_email.toLowerCase().includes(savedSearch) || d.agent_name.toLowerCase().includes(savedSearch));
+            if(activeFilter === 'FTD') daily = daily.filter(d => d.deal_type === 'FTD');
+            if(activeFilter === 'Mine') daily = daily.filter(d => d.agent_name === myName);
+
+            document.getElementById('h-deals').innerHTML = daily.map(d => {
+                const isNew = (Date.now() - new Date(d.created_at).getTime()) < 300000; // 5 mins
+                return `
+                <div onclick="openDealModal(${d.id})" class="panel p-4 rounded-2xl flex justify-between items-center active:scale-95 transition-transform">
                     <div>
-                        <p class="text-xs font-bold">${d.agent_name} ${d.amount >= 1000 ? '🐳' : ''}</p>
-                        <p class="text-[9px] opacity-50 uppercase">${d.deal_type} • ${d.payment_method}</p>
+                        <p class="text-sm font-bold flex items-center gap-2">${d.agent_name} ${isNew ? '<span class="bg-red-500 text-white text-[8px] px-1.5 py-0.5 rounded uppercase animate-pulse">New</span>' : ''}</p>
+                        <p class="text-[10px] opacity-50 uppercase">${d.deal_type} • ${d.payment_method}</p>
+                        <p class="text-[9px] opacity-30 mt-1">${d.client_id}</p>
                     </div>
-                    <p class="font-black text-blue-400 text-sm">+$${d.amount}</p>
+                    <p class="font-black text-lg" style="color: var(--accent)">+$${d.amount.toLocaleString()}</p>
                 </div>
-            `).join('');
+            `}).join('') || '<p class="text-center opacity-30 py-10 text-xs">No transactions found</p>';
         }
 
         function renderStats() {
@@ -133,31 +195,64 @@
             const sorted = Object.entries(agents).sort((a,b) => b[1]-a[1]);
 
             document.getElementById('stats-container').innerHTML = sorted.map(([name, amt], i) => `
-                <div class="bg-slate-900 p-4 rounded-2xl flex justify-between items-center border border-white/5">
-                    <span class="text-xs font-bold">${i === 0 ? '🥇' : i+1+'.'} ${name}</span>
-                    <span class="text-blue-400 font-black text-xs">$${amt.toLocaleString()}</span>
+                <div onclick="filterByAgent('${name}')" class="panel p-4 rounded-2xl flex justify-between items-center active:bg-white/5">
+                    <span class="text-sm font-bold">${i === 0 ? '🥇' : i+1+'.'} ${name}</span>
+                    <span class="font-black text-sm" style="color: var(--accent)">$${amt.toLocaleString()}</span>
                 </div>
             `).join('');
             
             document.getElementById('s-count').innerText = cache.deals.length;
-            const avg = cache.deals.length ? (cache.deals.reduce((s,d)=>s+d.amount,0)/cache.deals.length).toFixed(0) : 0;
-            document.getElementById('s-avg').innerText = `$${avg}`;
+            document.getElementById('s-avg').innerText = `$${cache.deals.length ? (cache.deals.reduce((s,d)=>s+d.amount,0)/cache.deals.length).toFixed(0) : 0}`;
         }
 
         function renderBreaks() {
             document.getElementById('b-live').innerHTML = cache.active_breaks.map(b => `
-                <div class="flex justify-between items-center p-3 bg-slate-950 rounded-xl border border-white/5">
-                    <span class="text-xs font-bold">${b.agent_name}</span>
+                <div class="flex justify-between items-center p-4 panel rounded-2xl">
+                    <span class="text-sm font-bold">${b.agent_name}</span>
                     <div class="flex items-center gap-3">
-                        <span class="text-orange-400 font-mono text-xs">TIMER RUNNING</span>
-                        <button onclick="endBreak('${b.user_id}')" class="text-[10px] bg-red-500/10 text-red-500 px-2 py-1 rounded-md font-bold">STOP</button>
+                        <span class="text-orange-400 font-mono text-sm font-bold timer" data-start="${new Date(b.start_time).getTime()}" data-total="${b.duration*60}">--:--</span>
+                        <button onclick="endBreak('${b.user_id}')" class="text-[10px] bg-red-500/10 text-red-500 px-3 py-1.5 rounded-lg font-bold">STOP</button>
                     </div>
                 </div>
-            `).join('') || '<p class="text-[10px] opacity-30 text-center">No active breaks</p>';
+            `).join('') || '<p class="text-xs opacity-30 text-center py-4">No active breaks</p>';
+        }
+
+        function tick() {
+            document.getElementById('live-clock').innerText = new Date().toLocaleTimeString();
+            document.querySelectorAll('.timer').forEach(el => {
+                const elapsed = Math.floor((Date.now() - parseInt(el.dataset.start)) / 1000);
+                const rem = Math.max(0, parseInt(el.dataset.total) - elapsed);
+                el.innerText = `${Math.floor(rem/60).toString().padStart(2, '0')}:${(rem%60).toString().padStart(2, '0')}`;
+                if(rem === 0) el.classList.replace('text-orange-400', 'text-red-500');
+            });
+        }
+
+        // Deal Management
+        function openDealModal(id = null) {
+            currentEditId = id;
+            document.getElementById('m-deal').classList.remove('hidden');
+            if(id) {
+                const d = cache.deals.find(x => x.id === id);
+                document.getElementById('m-deal-title').innerText = "Edit Deal";
+                document.getElementById('f-cid').value = d.client_id;
+                document.getElementById('f-email').value = d.client_email;
+                document.getElementById('f-amt').value = d.amount;
+                document.getElementById('f-type').value = d.deal_type;
+                document.getElementById('f-method').value = d.payment_method;
+                document.getElementById('deal-submit-btn').innerText = "UPDATE DEAL";
+                document.getElementById('deal-delete-btn').classList.remove('hidden');
+                document.getElementById('deal-copy-btn').classList.remove('hidden');
+            } else {
+                document.getElementById('m-deal-title').innerText = "New Deal";
+                document.getElementById('deal-submit-btn').innerText = "CONFIRM";
+                document.getElementById('deal-delete-btn').classList.add('hidden');
+                document.getElementById('deal-copy-btn').classList.add('hidden');
+                document.querySelectorAll('#m-deal input').forEach(i => i.value = '');
+            }
         }
 
         async function submitDeal() {
-            const deal = {
+            const body = {
                 agent_name: tg.initDataUnsafe.user?.first_name || "Agent",
                 amount: parseFloat(document.getElementById('f-amt').value),
                 client_id: document.getElementById('f-cid').value,
@@ -165,9 +260,33 @@
                 deal_type: document.getElementById('f-type').value,
                 payment_method: document.getElementById('f-method').value
             };
-            await fetch('/api/deal', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(deal)});
+            const url = currentEditId ? `/api/admin/deal/${currentEditId}?password=${adminPass || '13012'}` : '/api/deal';
+            await fetch(url, {method: currentEditId ? 'PUT' : 'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body)});
             tg.HapticFeedback.notificationOccurred('success');
-            closeDealModal();
+            closeModal('m-deal');
+            refresh();
+        }
+
+        async function deleteDeal() {
+            if(!adminPass) adminPass = prompt("Admin Pass to Delete:");
+            if(!confirm("Permanently delete?")) return;
+            await fetch(`/api/admin/deal/${currentEditId}?password=${adminPass}`, {method:'DELETE'});
+            closeModal('m-deal');
+            refresh();
+        }
+
+        function copyDeal() {
+            const d = cache.deals.find(x => x.id === currentEditId);
+            const text = `💸 *NEW DEAL*\nAgent: ${d.agent_name}\nAmount: $${d.amount}\nType: ${d.deal_type}\nMethod: ${d.payment_method}\nClient: ${d.client_id}`;
+            navigator.clipboard.writeText(text);
+            tg.showAlert("Copied to clipboard!");
+        }
+
+        // Break Management
+        async function takeBreak(m) {
+            if(!confirm(`Start a ${m} minute break?`)) return;
+            const b = {user_id: tg.initDataUnsafe.user?.id || Date.now(), agent_name: tg.initDataUnsafe.user?.first_name || "Agent", duration: m, start_time: new Date().toISOString()};
+            await fetch('/api/break', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(b)});
             refresh();
         }
 
@@ -176,23 +295,48 @@
             refresh();
         }
 
-        async function takeBreak(m) {
-            const b = {user_id: tg.initDataUnsafe.user?.id || 99, agent_name: tg.initDataUnsafe.user?.first_name || "Agent", duration: m, start_time: new Date().toISOString()};
-            await fetch('/api/break', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(b)});
+        // Admin
+        function openAdmin() {
+            adminPass = prompt("Admin Key:");
+            if(adminPass === "13012") {
+                document.getElementById('a-goal').value = cache.config.goal || 10000;
+                document.getElementById('m-admin').classList.remove('hidden');
+            }
+        }
+
+        async function saveAdminConfig() {
+            await fetch('/api/admin/config', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({password: adminPass, config: {goal: parseInt(document.getElementById('a-goal').value)}})});
+            closeModal('m-admin');
             refresh();
         }
 
+        async function resetBreaks() {
+            await fetch('/api/admin/reset-breaks', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({password: adminPass})});
+            closeModal('m-admin');
+            refresh();
+        }
+
+        function exportCSV() {
+            const headers = "ID,Agent,Amount,Type,Method,ClientID,Date\n";
+            const rows = cache.deals.map(d => `${d.id},${d.agent_name},${d.amount},${d.deal_type},${d.payment_method},${d.client_id},${d.created_at}`).join("\n");
+            const blob = new Blob([headers + rows], { type: 'text/csv' });
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url; a.download = 'shift_report.csv'; a.click();
+        }
+
+        // Utils
+        function toggleTheme() { document.body.classList.toggle('theme-green'); }
+        function closeModal(id) { document.getElementById(id).classList.add('hidden'); }
         function nav(p) {
             document.querySelectorAll('.page').forEach(el => el.classList.remove('active'));
             document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
             document.getElementById(`page-${p}`).classList.add('active');
             document.getElementById(`n-${p}`).classList.add('active');
         }
-
-        function openDealModal() { document.getElementById('m-deal').classList.remove('hidden'); }
-        function closeDealModal() { document.getElementById('m-deal').classList.add('hidden'); }
         
         setInterval(refresh, 15000);
+        setInterval(tick, 1000);
         refresh();
     </script>
 </body>
