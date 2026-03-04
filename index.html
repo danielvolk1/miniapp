@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
     <style>
         :root { --bg: #0f172a; --panel: #1e293b; --text: #f8fafc; --accent: #3b82f6; }
         .theme-green { --bg: #022c22; --panel: #064e3b; --text: #ecfdf5; --accent: #10b981; }
@@ -15,22 +16,23 @@
         .page { display: none; padding: 16px; padding-bottom: 120px; min-height: 100vh; }
         .page.active { display: block; }
         
-        input, select, textarea { 
-            pointer-events: auto !important; user-select: text !important;
-            background: rgba(0,0,0,0.2) !important; color: var(--text) !important;
-            border: 1px solid rgba(255,255,255,0.1) !important;
-        }
+        input, select, textarea { pointer-events: auto !important; user-select: text !important; background: rgba(0,0,0,0.2) !important; color: var(--text) !important; border: 1px solid rgba(255,255,255,0.1) !important; }
         .nav-item.active { color: var(--accent); }
+        .avatar { display: flex; align-items: center; justify-content: center; border-radius: 50%; background: var(--accent); color: white; font-weight: black; }
     </style>
 </head>
 <body class="font-sans">
 
     <header class="flex justify-between items-center px-4 py-3 panel sticky top-0 z-50 backdrop-blur-md">
         <div class="flex flex-col">
-            <h1 class="font-black italic text-lg leading-tight">SHIFT<span style="color: var(--accent)">PRO</span></h1>
+            <h1 class="font-black italic text-lg leading-tight flex items-center gap-2">
+                SHIFT<span style="color: var(--accent)">PRO</span>
+                <span id="conn-status" class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+            </h1>
             <span id="live-clock" class="text-[9px] opacity-70 font-mono">00:00:00</span>
         </div>
         <div class="flex items-center gap-2">
+            <button onclick="toggleAudio()" id="btn-audio" class="p-2 rounded-lg text-xs panel">🔊</button>
             <button onclick="toggleTheme()" class="p-2 rounded-lg text-xs panel">🎨</button>
             <button onclick="openAdmin()" class="bg-red-500/10 text-red-500 px-3 py-1.5 rounded-lg text-[10px] font-bold border border-red-500/20">ADMIN</button>
         </div>
@@ -42,18 +44,10 @@
             <h2 id="h-total" class="text-4xl font-black mb-2">$0</h2>
             <div class="bg-black/20 rounded-full h-1.5"><div id="h-bar" class="bg-white h-full rounded-full transition-all duration-700 w-0"></div></div>
         </div>
-
         <div class="flex gap-2 mb-4 relative">
             <input type="text" id="deal-search" oninput="saveSearch()" placeholder="🔍 Search ID/Email..." class="flex-1 p-3 rounded-xl text-sm outline-none">
             <button onclick="clearSearch()" class="absolute right-3 top-3 opacity-50 font-bold">✕</button>
         </div>
-        
-        <div class="flex gap-2 mb-4 overflow-x-auto pb-1 hide-scrollbar">
-            <button onclick="setFilter('All')" class="px-4 py-2 rounded-xl text-[10px] font-bold panel whitespace-nowrap">ALL</button>
-            <button onclick="setFilter('Mine')" class="px-4 py-2 rounded-xl text-[10px] font-bold panel whitespace-nowrap text-blue-400">👤 MY DEALS</button>
-            <button onclick="setFilter('FTD')" class="px-4 py-2 rounded-xl text-[10px] font-bold panel whitespace-nowrap">FTDs</button>
-        </div>
-
         <div id="h-deals" class="space-y-3"></div>
     </main>
 
@@ -68,23 +62,18 @@
                 <p id="s-count" class="text-xl font-black text-emerald-400">0</p>
             </div>
         </div>
-        
-        <div class="panel p-4 rounded-2xl mb-6">
-            <div class="flex justify-between text-[10px] font-bold opacity-70 mb-1"><span id="ftd-count">FTD: 0</span><span id="dep-count">DEP: 0</span></div>
-            <div class="w-full bg-slate-700 h-2 rounded-full flex overflow-hidden mb-3">
-                <div id="ftd-bar" class="bg-blue-500 h-full"></div><div id="dep-bar" class="bg-emerald-500 h-full"></div>
-            </div>
-            <p id="pay-methods" class="text-[9px] font-bold opacity-50 text-center uppercase tracking-widest"></p>
-        </div>
-
         <h3 class="text-xs font-bold opacity-50 uppercase mb-3 ml-2">Leaderboard</h3>
         <div id="stats-container" class="space-y-2"></div>
     </main>
 
     <main id="page-breaks" class="page">
         <div class="grid grid-cols-2 gap-3 mb-6">
-            <button onclick="takeBreak(15)" class="panel p-6 rounded-3xl text-sm font-bold border-l-4 border-blue-500">☕ 15m Break</button>
-            <button onclick="takeBreak(45)" class="panel p-6 rounded-3xl text-sm font-bold border-l-4 border-orange-500">🍔 45m Break</button>
+            <button onclick="takeBreak('big')" class="panel p-5 rounded-3xl text-sm font-bold border-l-4 border-blue-500 flex flex-col items-start gap-1">
+                <span>🍽️ Big Break</span><span class="text-[9px] opacity-50 font-normal">1 Session (45m)</span>
+            </button>
+            <button onclick="takeBreak('small')" class="panel p-5 rounded-3xl text-sm font-bold border-l-4 border-orange-500 flex flex-col items-start gap-1">
+                <span>☕ Small Break</span><span class="text-[9px] opacity-50 font-normal">Pool (45m max)</span>
+            </button>
         </div>
         
         <div class="panel rounded-3xl p-5 mb-4">
@@ -93,12 +82,10 @@
         </div>
 
         <div class="panel rounded-3xl p-5">
-            <div class="flex justify-between items-center mb-4">
-                <h3 class="text-xs font-bold opacity-50 uppercase">Daily Allowance (60m)</h3>
-            </div>
+            <h3 class="text-xs font-bold opacity-50 uppercase mb-4">Remaining Break Quotas</h3>
             <div class="overflow-hidden rounded-xl border border-white/5">
                 <table class="w-full text-left text-xs">
-                    <thead class="bg-black/20 text-[9px] uppercase opacity-60"><tr><th class="p-3">Agent</th><th class="p-3">Used</th><th class="p-3">Left</th></tr></thead>
+                    <thead class="bg-black/20 text-[9px] uppercase opacity-60"><tr><th class="p-3">Agent</th><th class="p-3">Big Left</th><th class="p-3">Small Left</th></tr></thead>
                     <tbody id="b-quota" class="divide-y divide-white/5"></tbody>
                 </table>
             </div>
@@ -119,11 +106,23 @@
             <div class="space-y-4">
                 <input id="f-cid" type="text" placeholder="Client ID" class="w-full p-4 rounded-xl">
                 <input id="f-email" type="email" placeholder="Client Email" class="w-full p-4 rounded-xl">
-                <input id="f-amt" type="number" placeholder="Amount ($)" class="w-full p-4 rounded-xl">
+                
+                <div class="relative">
+                    <input id="f-amt" type="number" placeholder="Amount ($)" class="w-full p-4 rounded-xl text-lg font-black">
+                    <div class="flex gap-2 mt-2">
+                        <button onclick="addAmt(50)" class="bg-white/10 px-3 py-1 rounded-full text-[10px] font-bold">+50</button>
+                        <button onclick="addAmt(100)" class="bg-white/10 px-3 py-1 rounded-full text-[10px] font-bold">+100</button>
+                        <button onclick="addAmt(250)" class="bg-white/10 px-3 py-1 rounded-full text-[10px] font-bold">+250</button>
+                        <button onclick="addAmt(500)" class="bg-white/10 px-3 py-1 rounded-full text-[10px] font-bold">+500</button>
+                    </div>
+                </div>
+
                 <div class="flex gap-2">
                     <select id="f-type" class="flex-1 p-4 rounded-xl"><option>FTD</option><option>Deposit</option></select>
                     <select id="f-method" class="flex-1 p-4 rounded-xl"><option>Crypto</option><option>Wire</option><option>Stripe</option></select>
                 </div>
+                <textarea id="f-notes" placeholder="Notes/TxID (Optional)" class="w-full p-4 rounded-xl h-20 text-sm"></textarea>
+                
                 <button id="deal-submit-btn" onclick="submitDeal()" class="w-full py-4 rounded-xl font-black text-white shadow-lg" style="background: var(--accent)">CONFIRM</button>
                 <div class="grid grid-cols-2 gap-2 hidden" id="deal-edit-actions">
                     <button onclick="duplicateDeal()" class="bg-blue-900/40 text-blue-400 py-3 rounded-xl font-bold text-xs border border-blue-500/20">📄 DUPLICATE</button>
@@ -136,33 +135,19 @@
     <div id="m-admin" class="fixed inset-0 bg-black/90 z-[200] hidden p-5 overflow-y-auto backdrop-blur-sm">
         <div class="panel p-6 rounded-[2rem] mt-10 space-y-6">
             <div class="flex justify-between items-center"><h2 class="text-xl font-black text-red-500">Admin</h2><button onclick="closeModal('m-admin')" class="text-xl">✕</button></div>
-            <button onclick="openLedger()" class="w-full bg-slate-800 py-4 rounded-xl font-black text-white border border-white/10 flex justify-between px-4"><span>📂 Master Ledger</span><span>→</span></button>
             
+            <button onclick="generateReport()" class="w-full bg-blue-600 py-4 rounded-xl font-black text-white shadow-lg">📋 GENERATE SHIFT REPORT</button>
+
             <div class="space-y-3">
-                <p class="text-[10px] font-bold opacity-50 uppercase">Settings</p>
-                <input id="a-goal" type="number" placeholder="Shift Goal ($)" class="w-full p-4 rounded-xl">
+                <p class="text-[10px] font-bold opacity-50 uppercase flex justify-between"><span>Shift Goal</span> <span id="goal-val">$10,000</span></p>
+                <input id="a-goal" type="range" min="1000" max="100000" step="1000" oninput="updateGoalText(this.value)" class="w-full">
                 <button onclick="saveAdminConfig()" class="w-full py-3 rounded-xl font-bold text-white" style="background: var(--accent)">SAVE CONFIG</button>
             </div>
             <div class="space-y-3">
-                <p class="text-[10px] font-bold opacity-50 uppercase">Data & Control</p>
-                <div class="flex gap-2">
-                    <button onclick="exportCSV('deals')" class="flex-1 bg-emerald-600 py-3 rounded-xl font-bold text-[10px] text-white">📥 DEAL CSV</button>
-                    <button onclick="exportCSV('breaks')" class="flex-1 bg-amber-600 py-3 rounded-xl font-bold text-[10px] text-white">📥 BREAK CSV</button>
-                </div>
+                <button onclick="exportCSV('deals')" class="w-full bg-emerald-600 py-3 rounded-xl font-bold text-[10px] text-white">📥 DOWNLOAD RAW DEAL DATA</button>
                 <button onclick="resetBreaks()" class="w-full bg-red-900/40 text-red-500 border border-red-500/20 py-3 rounded-xl font-bold">CLEAR ALL TIMERS</button>
             </div>
         </div>
-    </div>
-
-    <div id="m-ledger" class="fixed inset-0 bg-black/95 z-[300] hidden flex-col">
-        <header class="flex justify-between items-center px-4 py-4 panel border-b border-white/5">
-            <h2 class="font-black text-lg">Master Ledger</h2>
-            <button onclick="closeModal('m-ledger')" class="bg-slate-800 px-3 py-1 rounded text-xs font-bold">CLOSE</button>
-        </header>
-        <div class="p-4 border-b border-white/5 panel">
-            <input type="date" id="ledger-date" onchange="renderLedger()" class="w-full p-3 rounded-xl text-sm outline-none">
-        </div>
-        <div class="flex-1 overflow-y-auto p-4 space-y-2" id="ledger-list"></div>
     </div>
 
     <audio id="chime" src="https://assets.mixkit.co/active_storage/sfx/2013/2013-preview.mp3" preload="auto"></audio>
@@ -173,26 +158,36 @@
         let cache = { deals: [], active_breaks: [], break_logs: [], config: { goal: 10000 } };
         let adminPass = '';
         let currentEditId = null;
-        let activeFilter = 'All';
         let savedSearch = '';
         const themes = ['dark', 'theme-green', 'theme-amoled'];
         let themeIndex = 0;
+        let audioMuted = false;
+
+        window.addEventListener('online', () => document.getElementById('conn-status').className = 'w-2 h-2 rounded-full bg-emerald-500 animate-pulse');
+        window.addEventListener('offline', () => document.getElementById('conn-status').className = 'w-2 h-2 rounded-full bg-red-500');
 
         async function refresh() {
-            const res = await fetch('/api/dashboard');
-            cache = await res.json();
-            renderHome();
-            renderStats();
-            renderBreaks();
-            if(!document.getElementById('m-ledger').classList.contains('hidden')) renderLedger();
+            try {
+                const res = await fetch('/api/dashboard');
+                cache = await res.json();
+                renderHome(); renderStats(); renderBreaks();
+            } catch(e) { console.log("Offline or error"); }
         }
 
-        function clearSearch() { document.getElementById('deal-search').value = ''; saveSearch(); }
-        function saveSearch() { savedSearch = document.getElementById('deal-search').value.toLowerCase(); renderHome(); }
-        function setFilter(f) { activeFilter = f; renderHome(); }
+        function getInitials(name) { return name.substring(0,2).toUpperCase(); }
+        function timeAgo(dateStr) {
+            const seconds = Math.floor((new Date() - new Date(dateStr)) / 1000);
+            if(seconds < 60) return "Just now";
+            const mins = Math.floor(seconds/60);
+            if(mins < 60) return `${mins}m ago`;
+            return `${Math.floor(mins/60)}h ago`;
+        }
+        function addAmt(val) { 
+            const el = document.getElementById('f-amt'); 
+            el.value = (parseFloat(el.value) || 0) + val; 
+        }
 
         function renderHome() {
-            const myName = tg.initDataUnsafe.user?.first_name || "Agent";
             const today = new Date().toISOString().split('T')[0];
             let daily = cache.deals.filter(d => d.created_at.startsWith(today));
             
@@ -201,51 +196,35 @@
             document.getElementById('h-bar').style.width = `${Math.min((total/cache.config.goal)*100, 100)}%`;
             
             if(savedSearch) daily = daily.filter(d => d.client_id.toLowerCase().includes(savedSearch) || d.client_email.toLowerCase().includes(savedSearch) || d.agent_name.toLowerCase().includes(savedSearch));
-            if(activeFilter === 'FTD') daily = daily.filter(d => d.deal_type === 'FTD');
-            if(activeFilter === 'Mine') daily = daily.filter(d => d.agent_name === myName);
 
-            document.getElementById('h-deals').innerHTML = daily.map(d => {
-                return `
+            document.getElementById('h-deals').innerHTML = daily.map(d => `
                 <div onclick="openDealModal(${d.id})" class="panel p-4 rounded-2xl flex justify-between items-center active:scale-95 transition-transform">
-                    <div>
-                        <p class="text-sm font-bold">${d.agent_name}</p>
-                        <p class="text-[10px] opacity-50 uppercase">${d.deal_type} • ${d.payment_method}</p>
-                        <p class="text-[9px] opacity-30 mt-1">${d.client_id}</p>
+                    <div class="flex items-center gap-3">
+                        <div class="avatar w-10 h-10 text-xs shadow-lg">${getInitials(d.agent_name)}</div>
+                        <div>
+                            <p class="text-sm font-bold">${d.agent_name} <span class="text-[9px] font-normal opacity-50 ml-1">${timeAgo(d.created_at)}</span></p>
+                            <p class="text-[10px] opacity-60 uppercase">${d.deal_type} • ${d.client_id}</p>
+                        </div>
                     </div>
                     <p class="font-black text-lg" style="color: var(--accent)">+$${d.amount.toLocaleString()}</p>
                 </div>
-            `}).join('') || '<p class="text-center opacity-30 py-10 text-xs">No transactions found</p>';
+            `).join('') || '<p class="text-center opacity-30 py-10 text-xs">No transactions</p>';
         }
 
         function renderStats() {
             const today = new Date().toISOString().split('T')[0];
             const daily = cache.deals.filter(d => d.created_at.startsWith(today));
-            
-            let ftds = 0, deps = 0;
-            const methods = {Crypto: 0, Wire: 0, Stripe: 0};
             const agents = {};
+            daily.forEach(d => { agents[d.agent_name] = (agents[d.agent_name] || 0) + d.amount; });
+            const sorted = Object.entries(agents).sort((a,b) => b[1] - a[1]);
 
-            daily.forEach(d => {
-                if(d.deal_type === 'FTD') ftds++; else deps++;
-                if(methods[d.payment_method] !== undefined) methods[d.payment_method]++;
-                agents[d.agent_name] = agents[d.agent_name] || {amt: 0, count: 0};
-                agents[d.agent_name].amt += d.amount;
-                agents[d.agent_name].count += 1;
-            });
-
-            // Ratio Visualizer
-            const totalDeals = daily.length || 1;
-            document.getElementById('ftd-count').innerText = `FTD: ${ftds}`;
-            document.getElementById('dep-count').innerText = `DEP: ${deps}`;
-            document.getElementById('ftd-bar').style.width = `${(ftds/totalDeals)*100}%`;
-            document.getElementById('dep-bar').style.width = `${(deps/totalDeals)*100}%`;
-            document.getElementById('pay-methods').innerText = `Crypto: ${methods.Crypto} | Wire: ${methods.Wire} | Stripe: ${methods.Stripe}`;
-
-            const sorted = Object.entries(agents).sort((a,b) => b[1].amt - a[1].amt);
-            document.getElementById('stats-container').innerHTML = sorted.map(([name, data], i) => `
+            document.getElementById('stats-container').innerHTML = sorted.map(([name, amt], i) => `
                 <div class="panel p-4 rounded-2xl flex justify-between items-center">
-                    <span class="text-sm font-bold">${i === 0 ? '🥇' : i+1+'.'} ${name} ${data.count >= 3 ? '🔥' : ''}</span>
-                    <span class="font-black text-sm" style="color: var(--accent)">$${data.amt.toLocaleString()}</span>
+                    <div class="flex items-center gap-3">
+                        <span class="text-sm w-4">${i === 0 ? '🥇' : i+1}</span>
+                        <span class="text-sm font-bold">${name}</span>
+                    </div>
+                    <span class="font-black text-sm" style="color: var(--accent)">$${amt.toLocaleString()}</span>
                 </div>
             `).join('');
             
@@ -253,187 +232,180 @@
             document.getElementById('s-avg').innerText = `$${daily.length ? (daily.reduce((s,d)=>s+d.amount,0)/daily.length).toFixed(0) : 0}`;
         }
 
+        // --- NEW BREAK LOGIC ---
         function renderBreaks() {
-            // Live Timers
-            document.getElementById('b-live').innerHTML = cache.active_breaks.map(b => `
-                <div class="flex justify-between items-center p-3 panel rounded-xl border border-white/5">
-                    <span class="text-xs font-bold">${b.agent_name}</span>
-                    <div class="flex items-center gap-3">
-                        <span class="text-orange-400 font-mono text-xs font-bold timer" data-start="${new Date(b.start_time).getTime()}" data-total="${b.duration*60}">--:--</span>
-                        <button onclick="endBreak('${b.user_id}')" class="text-[10px] bg-red-500 text-white px-2 py-1 rounded font-bold">STOP</button>
-                    </div>
-                </div>
-            `).join('') || '<p class="text-[10px] opacity-30 text-center py-2">No active breaks</p>';
-
-            // Quota Tracker
             const usage = {};
             const today = new Date().toISOString().split('T')[0];
             
-            // Add completed breaks
+            // Build Base Agent List & Completed Usage
             cache.break_logs.filter(b => b.created_at.startsWith(today)).forEach(b => {
-                usage[b.agent_name] = (usage[b.agent_name] || 0) + b.duration;
-            });
-            // Add currently active break time (estimated)
-            cache.active_breaks.forEach(b => {
-                const elapsed = Math.floor((Date.now() - new Date(b.start_time).getTime()) / 60000);
-                usage[b.agent_name] = (usage[b.agent_name] || 0) + elapsed;
+                usage[b.agent_name] = usage[b.agent_name] || { big: 0, small: 0 };
+                usage[b.agent_name][b.break_type] += b.duration;
             });
 
-            document.getElementById('b-quota').innerHTML = Object.entries(usage).map(([name, used]) => {
-                const left = Math.max(0, 60 - used);
-                return `<tr><td class="p-3 font-bold">${name}</td><td class="p-3 text-orange-400">${used}m</td><td class="p-3 ${left === 0 ? 'text-red-500' : 'text-emerald-400'}">${left}m</td></tr>`;
-            }).join('') || '<tr><td colspan="3" class="text-center p-4 opacity-30 text-[10px]">No breaks taken today</td></tr>';
+            // Live Timers with specific Pool counting
+            document.getElementById('b-live').innerHTML = cache.active_breaks.map(b => {
+                usage[b.agent_name] = usage[b.agent_name] || { big: 0, small: 0 }; // Ensure agent exists in usage
+                
+                // Max pool for the type being taken
+                const poolMax = 45; 
+                const alreadyUsed = usage[b.agent_name][b.break_type];
+                
+                return `
+                <div class="flex justify-between items-center p-3 panel rounded-xl border border-white/5">
+                    <div>
+                        <span class="text-xs font-bold block">${b.agent_name}</span>
+                        <span class="text-[9px] opacity-50 uppercase">${b.break_type} Break</span>
+                    </div>
+                    <div class="flex items-center gap-3">
+                        <span class="font-mono text-sm font-bold timer text-emerald-400" 
+                              data-start="${new Date(b.start_time).getTime()}" 
+                              data-used="${alreadyUsed}" 
+                              data-max="${poolMax}">--:--</span>
+                        <button onclick="endBreak('${b.user_id}')" class="text-[10px] bg-red-500 text-white px-3 py-2 rounded-lg font-bold">STOP</button>
+                    </div>
+                </div>
+            `}).join('') || '<p class="text-[10px] opacity-30 text-center py-2">No active breaks</p>';
+
+            // Quota Table Calculation
+            document.getElementById('b-quota').innerHTML = Object.entries(usage).map(([name, data]) => {
+                // Determine active break to estimate current burn
+                const active = cache.active_breaks.find(a => a.agent_name === name);
+                let currentBurnBig = 0, currentBurnSmall = 0;
+                if(active) {
+                    const burn = Math.floor((Date.now() - new Date(active.start_time).getTime()) / 60000);
+                    if(active.break_type === 'big') currentBurnBig = burn;
+                    if(active.break_type === 'small') currentBurnSmall = burn;
+                }
+
+                const bigLeft = Math.max(0, 45 - data.big - currentBurnBig);
+                const smallLeft = Math.max(0, 45 - data.small - currentBurnSmall);
+
+                return `<tr>
+                    <td class="p-3 font-bold">${name}</td>
+                    <td class="p-3 ${bigLeft <= 5 ? 'text-red-500' : 'text-blue-400'} font-mono">${bigLeft}m</td>
+                    <td class="p-3 ${smallLeft <= 5 ? 'text-red-500' : 'text-orange-400'} font-mono">${smallLeft}m</td>
+                </tr>`;
+            }).join('') || '<tr><td colspan="3" class="text-center p-4 opacity-30 text-[10px]">No breaks taken</td></tr>';
         }
 
         function tick() {
             document.getElementById('live-clock').innerText = new Date().toLocaleTimeString();
             document.querySelectorAll('.timer').forEach(el => {
-                const elapsed = Math.floor((Date.now() - parseInt(el.dataset.start)) / 1000);
-                const rem = Math.max(0, parseInt(el.dataset.total) - elapsed);
-                el.innerText = `${Math.floor(rem/60).toString().padStart(2, '0')}:${(rem%60).toString().padStart(2, '0')}`;
+                const elapsedMins = (Date.now() - parseInt(el.dataset.start)) / 60000;
+                const totalUsedSoFar = parseFloat(el.dataset.used) + elapsedMins;
+                let remainingMins = parseFloat(el.dataset.max) - totalUsedSoFar;
+                
+                if (remainingMins < 0) {
+                    el.classList.replace('text-emerald-400', 'text-red-500');
+                    el.classList.add('animate-pulse');
+                    const over = Math.abs(remainingMins);
+                    el.innerText = `-${Math.floor(over).toString().padStart(2,'0')}:${Math.floor((over%1)*60).toString().padStart(2,'0')}`;
+                } else {
+                    el.innerText = `${Math.floor(remainingMins).toString().padStart(2,'0')}:${Math.floor((remainingMins%1)*60).toString().padStart(2,'0')}`;
+                }
             });
+            // Re-render quotas every minute roughly to keep table updated
+            if(new Date().getSeconds() === 0) renderBreaks(); 
         }
 
-        // Deal Management
+        // --- Core Interactions ---
         function openDealModal(id = null) {
             currentEditId = id;
             document.getElementById('m-deal').classList.remove('hidden');
             if(id) {
                 const d = cache.deals.find(x => x.id === id);
                 document.getElementById('m-deal-title').innerText = "Edit Deal";
-                document.getElementById('f-cid').value = d.client_id;
-                document.getElementById('f-email').value = d.client_email;
-                document.getElementById('f-amt').value = d.amount;
-                document.getElementById('f-type').value = d.deal_type;
-                document.getElementById('f-method').value = d.payment_method;
-                document.getElementById('deal-submit-btn').innerText = "UPDATE DEAL";
+                document.getElementById('f-cid').value = d.client_id; document.getElementById('f-email').value = d.client_email;
+                document.getElementById('f-amt').value = d.amount; document.getElementById('f-type').value = d.deal_type;
+                document.getElementById('f-method').value = d.payment_method; document.getElementById('f-notes').value = d.notes || "";
+                document.getElementById('deal-submit-btn').innerText = "UPDATE";
                 document.getElementById('deal-edit-actions').classList.remove('hidden');
             } else {
                 document.getElementById('m-deal-title').innerText = "New Deal";
                 document.getElementById('deal-submit-btn').innerText = "CONFIRM";
                 document.getElementById('deal-edit-actions').classList.add('hidden');
-                document.querySelectorAll('#m-deal input').forEach(i => i.value = '');
+                document.querySelectorAll('#m-deal input, #m-deal textarea').forEach(i => i.value = '');
             }
         }
 
-        async function submitDeal(isDuplicate = false) {
+        async function submitDeal(isDup = false) {
+            const amt = parseFloat(document.getElementById('f-amt').value);
             const body = {
-                agent_name: tg.initDataUnsafe.user?.first_name || "Agent",
-                amount: parseFloat(document.getElementById('f-amt').value),
-                client_id: document.getElementById('f-cid').value,
-                client_email: document.getElementById('f-email').value,
-                deal_type: document.getElementById('f-type').value,
-                payment_method: document.getElementById('f-method').value
+                agent_name: tg.initDataUnsafe.user?.first_name || "Agent", amount: amt,
+                client_id: document.getElementById('f-cid').value, client_email: document.getElementById('f-email').value,
+                deal_type: document.getElementById('f-type').value, payment_method: document.getElementById('f-method').value,
+                notes: document.getElementById('f-notes').value
             };
             
-            const isPut = currentEditId && !isDuplicate;
+            const isPut = currentEditId && !isDup;
             const url = isPut ? `/api/admin/deal/${currentEditId}?password=${adminPass || '13012'}` : '/api/deal';
-            
             await fetch(url, {method: isPut ? 'PUT' : 'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body)});
             
+            if(amt >= 1000) confetti({ particleCount: 150, spread: 100, origin: { y: 0.6 } }); // Feature: Whale Confetti
+            if(!audioMuted) document.getElementById('chime').play().catch(()=>{});
             tg.HapticFeedback.notificationOccurred('success');
-            document.getElementById('chime').play().catch(()=>{}); // Play audio cue
-            closeModal('m-deal');
-            if(document.getElementById('m-ledger').classList.contains('hidden') === false) openLedger();
-            refresh();
+            closeModal('m-deal'); refresh();
         }
 
         function duplicateDeal() { submitDeal(true); }
-
         async function deleteDeal() {
-            if(!adminPass) adminPass = prompt("Admin Pass required:");
-            if(!confirm("Permanently delete?")) return;
+            if(!adminPass) adminPass = prompt("Admin Pass:");
+            if(!confirm("Delete?")) return;
             await fetch(`/api/admin/deal/${currentEditId}?password=${adminPass}`, {method:'DELETE'});
-            closeModal('m-deal');
-            if(document.getElementById('m-ledger').classList.contains('hidden') === false) openLedger();
-            refresh();
+            closeModal('m-deal'); refresh();
         }
 
-        // Break Management
-        async function takeBreak(m) {
-            if(!confirm(`Start a ${m} minute break?`)) return;
-            const b = {user_id: tg.initDataUnsafe.user?.id || Date.now(), agent_name: tg.initDataUnsafe.user?.first_name || "Agent", duration: m, start_time: new Date().toISOString()};
+        async function takeBreak(type) {
+            const b = {user_id: tg.initDataUnsafe.user?.id || Date.now(), agent_name: tg.initDataUnsafe.user?.first_name || "Agent", break_type: type };
             await fetch('/api/break', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(b)});
             refresh();
         }
-
         async function endBreak(uid) {
             await fetch('/api/break/end', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({user_id: uid})});
             refresh();
         }
 
-        // Admin & Master Ledger
+        // --- Admin ---
         function openAdmin() {
             if(!adminPass) adminPass = prompt("Admin Key:");
             if(adminPass === "13012") {
                 document.getElementById('a-goal').value = cache.config.goal || 10000;
+                updateGoalText(cache.config.goal || 10000);
                 document.getElementById('m-admin').classList.remove('hidden');
             }
         }
 
-        function openLedger() {
-            document.getElementById('m-admin').classList.add('hidden');
-            document.getElementById('m-ledger').classList.remove('hidden');
-            document.getElementById('m-ledger').classList.add('flex');
-            renderLedger();
+        function generateReport() {
+            const today = new Date().toISOString().split('T')[0];
+            const daily = cache.deals.filter(d => d.created_at.startsWith(today));
+            const total = daily.reduce((s, d) => s + d.amount, 0);
+            
+            const agents = {};
+            daily.forEach(d => { agents[d.agent_name] = (agents[d.agent_name] || 0) + d.amount; });
+            const topAgent = Object.entries(agents).sort((a,b) => b[1] - a[1])[0];
+            
+            const report = `📊 *SHIFT SUMMARY*\n💰 Total Revenue: $${total.toLocaleString()}\n🎯 Shift Goal: ${((total/cache.config.goal)*100).toFixed(1)}%\n🥇 Top Agent: ${topAgent ? topAgent[0] + ' ($'+topAgent[1].toLocaleString()+')' : 'N/A'}\n📦 Total Deals: ${daily.length}`;
+            navigator.clipboard.writeText(report);
+            tg.showAlert("Shift Report Copied to Clipboard!");
         }
 
-        function renderLedger() {
-            const dateFilter = document.getElementById('ledger-date').value;
-            let list = cache.deals;
-            if(dateFilter) list = list.filter(d => d.created_at.startsWith(dateFilter));
-
-            document.getElementById('ledger-list').innerHTML = list.map(d => `
-                <div onclick="openDealModal(${d.id})" class="p-4 rounded-xl panel border border-white/10 active:bg-white/5 flex justify-between">
-                    <div>
-                        <p class="text-xs font-bold">${d.agent_name} <span class="text-[8px] opacity-50 font-mono">${d.created_at.split('T')[0]}</span></p>
-                        <p class="text-[10px] opacity-60">${d.client_id} | ${d.deal_type}</p>
-                    </div>
-                    <p class="font-black text-sm text-blue-400">$${d.amount}</p>
-                </div>
-            `).join('') || '<p class="text-center opacity-40 text-xs py-10">No records found</p>';
-        }
-
+        function updateGoalText(val) { document.getElementById('goal-val').innerText = `$${parseInt(val).toLocaleString()}`; }
         async function saveAdminConfig() {
             await fetch('/api/admin/config', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({password: adminPass, config: {goal: parseInt(document.getElementById('a-goal').value)}})});
-            closeModal('m-admin');
-            refresh();
+            closeModal('m-admin'); refresh();
         }
 
-        async function resetBreaks() {
-            await fetch('/api/admin/reset-breaks', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({password: adminPass})});
-            closeModal('m-admin');
-            refresh();
-        }
-
-        function exportCSV(type) {
-            let headers, rows, filename;
-            if(type === 'deals') {
-                headers = "ID,Agent,Amount,Type,Method,ClientID,Date\n";
-                rows = cache.deals.map(d => `${d.id},${d.agent_name},${d.amount},${d.deal_type},${d.payment_method},${d.client_id},${d.created_at}`).join("\n");
-                filename = 'deal_ledger.csv';
-            } else {
-                headers = "Agent,Duration(m),Date\n";
-                rows = cache.break_logs.map(b => `${b.agent_name},${b.duration},${b.created_at}`).join("\n");
-                filename = 'break_logs.csv';
-            }
-            const blob = new Blob([headers + rows], { type: 'text/csv' });
-            const url = window.URL.createObjectURL(blob);
-            const a = document.createElement('a'); a.href = url; a.download = filename; a.click();
-        }
-
-        // Utils
+        // --- Utils ---
+        function clearSearch() { document.getElementById('deal-search').value = ''; saveSearch(); }
+        function saveSearch() { savedSearch = document.getElementById('deal-search').value.toLowerCase(); renderHome(); }
+        function toggleAudio() { audioMuted = !audioMuted; document.getElementById('btn-audio').innerText = audioMuted ? '🔇' : '🔊'; }
         function toggleTheme() {
             document.body.classList.remove(themes[themeIndex]);
             themeIndex = (themeIndex + 1) % themes.length;
             if(themes[themeIndex] !== 'dark') document.body.classList.add(themes[themeIndex]);
         }
-        
-        function closeModal(id) { 
-            document.getElementById(id).classList.add('hidden'); 
-            if(id === 'm-ledger') document.getElementById(id).classList.remove('flex');
-        }
-        
+        function closeModal(id) { document.getElementById(id).classList.add('hidden'); }
         function nav(p) {
             document.querySelectorAll('.page').forEach(el => el.classList.remove('active'));
             document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
