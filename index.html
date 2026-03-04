@@ -5,10 +5,10 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
     <style>
         :root { --bg: #0f172a; --panel: #1e293b; --text: #f8fafc; --accent: #3b82f6; }
         .theme-green { --bg: #022c22; --panel: #064e3b; --text: #ecfdf5; --accent: #10b981; }
+        .theme-amoled { --bg: #000000; --panel: #0a0a0a; --text: #ffffff; --accent: #3b82f6; border-color: #333 !important; }
         
         body { background: var(--bg); color: var(--text); overflow-y: auto; -webkit-overflow-scrolling: touch; transition: all 0.3s; }
         .panel { background: var(--panel); border: 1px solid rgba(255,255,255,0.05); }
@@ -16,10 +16,8 @@
         .page.active { display: block; }
         
         input, select, textarea { 
-            pointer-events: auto !important; 
-            user-select: text !important;
-            background: rgba(0,0,0,0.2) !important;
-            color: var(--text) !important;
+            pointer-events: auto !important; user-select: text !important;
+            background: rgba(0,0,0,0.2) !important; color: var(--text) !important;
             border: 1px solid rgba(255,255,255,0.1) !important;
         }
         .nav-item.active { color: var(--accent); }
@@ -39,14 +37,15 @@
     </header>
 
     <main id="page-home" class="page active">
-        <div class="p-6 rounded-3xl shadow-xl mb-4 text-white" style="background: var(--accent)">
+        <div class="p-6 rounded-3xl shadow-xl mb-4 text-white relative overflow-hidden" style="background: var(--accent)">
             <p class="text-[10px] font-bold opacity-80 uppercase tracking-widest">Shift Total</p>
             <h2 id="h-total" class="text-4xl font-black mb-2">$0</h2>
             <div class="bg-black/20 rounded-full h-1.5"><div id="h-bar" class="bg-white h-full rounded-full transition-all duration-700 w-0"></div></div>
         </div>
 
-        <div class="flex gap-2 mb-4">
+        <div class="flex gap-2 mb-4 relative">
             <input type="text" id="deal-search" oninput="saveSearch()" placeholder="🔍 Search ID/Email..." class="flex-1 p-3 rounded-xl text-sm outline-none">
+            <button onclick="clearSearch()" class="absolute right-3 top-3 opacity-50 font-bold">✕</button>
         </div>
         
         <div class="flex gap-2 mb-4 overflow-x-auto pb-1 hide-scrollbar">
@@ -56,11 +55,10 @@
         </div>
 
         <div id="h-deals" class="space-y-3"></div>
-        <p id="quote-footer" class="text-center text-[10px] opacity-40 mt-8 italic font-serif"></p>
     </main>
 
     <main id="page-stats" class="page">
-        <div class="grid grid-cols-2 gap-3 mb-6">
+        <div class="grid grid-cols-2 gap-3 mb-3">
             <div class="panel p-5 rounded-2xl">
                 <p class="text-[10px] opacity-50 font-bold uppercase">Avg Deal</p>
                 <p id="s-avg" class="text-xl font-black" style="color: var(--accent)">$0</p>
@@ -70,7 +68,16 @@
                 <p id="s-count" class="text-xl font-black text-emerald-400">0</p>
             </div>
         </div>
-        <h3 class="text-xs font-bold opacity-50 uppercase mb-3 ml-2">Leaderboard (Tap to filter)</h3>
+        
+        <div class="panel p-4 rounded-2xl mb-6">
+            <div class="flex justify-between text-[10px] font-bold opacity-70 mb-1"><span id="ftd-count">FTD: 0</span><span id="dep-count">DEP: 0</span></div>
+            <div class="w-full bg-slate-700 h-2 rounded-full flex overflow-hidden mb-3">
+                <div id="ftd-bar" class="bg-blue-500 h-full"></div><div id="dep-bar" class="bg-emerald-500 h-full"></div>
+            </div>
+            <p id="pay-methods" class="text-[9px] font-bold opacity-50 text-center uppercase tracking-widest"></p>
+        </div>
+
+        <h3 class="text-xs font-bold opacity-50 uppercase mb-3 ml-2">Leaderboard</h3>
         <div id="stats-container" class="space-y-2"></div>
     </main>
 
@@ -79,9 +86,22 @@
             <button onclick="takeBreak(15)" class="panel p-6 rounded-3xl text-sm font-bold border-l-4 border-blue-500">☕ 15m Break</button>
             <button onclick="takeBreak(45)" class="panel p-6 rounded-3xl text-sm font-bold border-l-4 border-orange-500">🍔 45m Break</button>
         </div>
-        <div class="panel rounded-3xl p-5">
+        
+        <div class="panel rounded-3xl p-5 mb-4">
             <h3 class="text-xs font-bold opacity-50 uppercase mb-4">Active Timers</h3>
             <div id="b-live" class="space-y-3"></div>
+        </div>
+
+        <div class="panel rounded-3xl p-5">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-xs font-bold opacity-50 uppercase">Daily Allowance (60m)</h3>
+            </div>
+            <div class="overflow-hidden rounded-xl border border-white/5">
+                <table class="w-full text-left text-xs">
+                    <thead class="bg-black/20 text-[9px] uppercase opacity-60"><tr><th class="p-3">Agent</th><th class="p-3">Used</th><th class="p-3">Left</th></tr></thead>
+                    <tbody id="b-quota" class="divide-y divide-white/5"></tbody>
+                </table>
+            </div>
         </div>
     </main>
 
@@ -105,41 +125,58 @@
                     <select id="f-method" class="flex-1 p-4 rounded-xl"><option>Crypto</option><option>Wire</option><option>Stripe</option></select>
                 </div>
                 <button id="deal-submit-btn" onclick="submitDeal()" class="w-full py-4 rounded-xl font-black text-white shadow-lg" style="background: var(--accent)">CONFIRM</button>
-                <button id="deal-copy-btn" onclick="copyDeal()" class="w-full bg-slate-700 py-3 rounded-xl font-bold text-sm hidden">📋 COPY TO CLIPBOARD</button>
-                <button id="deal-delete-btn" onclick="deleteDeal()" class="w-full bg-red-900/40 text-red-500 py-3 rounded-xl font-bold text-sm hidden border border-red-500/20">DELETE TRANSACTION</button>
+                <div class="grid grid-cols-2 gap-2 hidden" id="deal-edit-actions">
+                    <button onclick="duplicateDeal()" class="bg-blue-900/40 text-blue-400 py-3 rounded-xl font-bold text-xs border border-blue-500/20">📄 DUPLICATE</button>
+                    <button onclick="deleteDeal()" class="bg-red-900/40 text-red-500 py-3 rounded-xl font-bold text-xs border border-red-500/20">🗑 DELETE</button>
+                </div>
             </div>
         </div>
     </div>
 
     <div id="m-admin" class="fixed inset-0 bg-black/90 z-[200] hidden p-5 overflow-y-auto backdrop-blur-sm">
         <div class="panel p-6 rounded-[2rem] mt-10 space-y-6">
-            <div class="flex justify-between items-center"><h2 class="text-xl font-black text-red-500">Admin Panel</h2><button onclick="closeModal('m-admin')" class="text-xl">✕</button></div>
+            <div class="flex justify-between items-center"><h2 class="text-xl font-black text-red-500">Admin</h2><button onclick="closeModal('m-admin')" class="text-xl">✕</button></div>
+            <button onclick="openLedger()" class="w-full bg-slate-800 py-4 rounded-xl font-black text-white border border-white/10 flex justify-between px-4"><span>📂 Master Ledger</span><span>→</span></button>
             
             <div class="space-y-3">
                 <p class="text-[10px] font-bold opacity-50 uppercase">Settings</p>
                 <input id="a-goal" type="number" placeholder="Shift Goal ($)" class="w-full p-4 rounded-xl">
                 <button onclick="saveAdminConfig()" class="w-full py-3 rounded-xl font-bold text-white" style="background: var(--accent)">SAVE CONFIG</button>
             </div>
-
             <div class="space-y-3">
                 <p class="text-[10px] font-bold opacity-50 uppercase">Data & Control</p>
-                <button onclick="exportCSV()" class="w-full bg-emerald-600 py-3 rounded-xl font-bold text-white">📥 EXPORT CSV</button>
+                <div class="flex gap-2">
+                    <button onclick="exportCSV('deals')" class="flex-1 bg-emerald-600 py-3 rounded-xl font-bold text-[10px] text-white">📥 DEAL CSV</button>
+                    <button onclick="exportCSV('breaks')" class="flex-1 bg-amber-600 py-3 rounded-xl font-bold text-[10px] text-white">📥 BREAK CSV</button>
+                </div>
                 <button onclick="resetBreaks()" class="w-full bg-red-900/40 text-red-500 border border-red-500/20 py-3 rounded-xl font-bold">CLEAR ALL TIMERS</button>
             </div>
         </div>
     </div>
 
+    <div id="m-ledger" class="fixed inset-0 bg-black/95 z-[300] hidden flex-col">
+        <header class="flex justify-between items-center px-4 py-4 panel border-b border-white/5">
+            <h2 class="font-black text-lg">Master Ledger</h2>
+            <button onclick="closeModal('m-ledger')" class="bg-slate-800 px-3 py-1 rounded text-xs font-bold">CLOSE</button>
+        </header>
+        <div class="p-4 border-b border-white/5 panel">
+            <input type="date" id="ledger-date" onchange="renderLedger()" class="w-full p-3 rounded-xl text-sm outline-none">
+        </div>
+        <div class="flex-1 overflow-y-auto p-4 space-y-2" id="ledger-list"></div>
+    </div>
+
+    <audio id="chime" src="https://assets.mixkit.co/active_storage/sfx/2013/2013-preview.mp3" preload="auto"></audio>
+
     <script>
         const tg = window.Telegram.WebApp;
         tg.expand();
-        let cache = { deals: [], active_breaks: [], config: { goal: 10000 } };
+        let cache = { deals: [], active_breaks: [], break_logs: [], config: { goal: 10000 } };
         let adminPass = '';
         let currentEditId = null;
         let activeFilter = 'All';
         let savedSearch = '';
-        
-        const quotes = ["Coffee is for closers.", "ABC: Always Be Closing.", "Don't sell features, sell results.", "Every 'no' gets you closer to a 'yes'."];
-        document.getElementById('quote-footer').innerText = `"${quotes[Math.floor(Math.random() * quotes.length)]}"`;
+        const themes = ['dark', 'theme-green', 'theme-amoled'];
+        let themeIndex = 0;
 
         async function refresh() {
             const res = await fetch('/api/dashboard');
@@ -147,20 +184,12 @@
             renderHome();
             renderStats();
             renderBreaks();
+            if(!document.getElementById('m-ledger').classList.contains('hidden')) renderLedger();
         }
 
-        function saveSearch() {
-            savedSearch = document.getElementById('deal-search').value.toLowerCase();
-            renderHome();
-        }
-
+        function clearSearch() { document.getElementById('deal-search').value = ''; saveSearch(); }
+        function saveSearch() { savedSearch = document.getElementById('deal-search').value.toLowerCase(); renderHome(); }
         function setFilter(f) { activeFilter = f; renderHome(); }
-
-        function filterByAgent(name) {
-            document.getElementById('deal-search').value = name;
-            saveSearch();
-            nav('home');
-        }
 
         function renderHome() {
             const myName = tg.initDataUnsafe.user?.first_name || "Agent";
@@ -176,11 +205,10 @@
             if(activeFilter === 'Mine') daily = daily.filter(d => d.agent_name === myName);
 
             document.getElementById('h-deals').innerHTML = daily.map(d => {
-                const isNew = (Date.now() - new Date(d.created_at).getTime()) < 300000; // 5 mins
                 return `
                 <div onclick="openDealModal(${d.id})" class="panel p-4 rounded-2xl flex justify-between items-center active:scale-95 transition-transform">
                     <div>
-                        <p class="text-sm font-bold flex items-center gap-2">${d.agent_name} ${isNew ? '<span class="bg-red-500 text-white text-[8px] px-1.5 py-0.5 rounded uppercase animate-pulse">New</span>' : ''}</p>
+                        <p class="text-sm font-bold">${d.agent_name}</p>
                         <p class="text-[10px] opacity-50 uppercase">${d.deal_type} • ${d.payment_method}</p>
                         <p class="text-[9px] opacity-30 mt-1">${d.client_id}</p>
                     </div>
@@ -190,31 +218,71 @@
         }
 
         function renderStats() {
+            const today = new Date().toISOString().split('T')[0];
+            const daily = cache.deals.filter(d => d.created_at.startsWith(today));
+            
+            let ftds = 0, deps = 0;
+            const methods = {Crypto: 0, Wire: 0, Stripe: 0};
             const agents = {};
-            cache.deals.forEach(d => agents[d.agent_name] = (agents[d.agent_name] || 0) + d.amount);
-            const sorted = Object.entries(agents).sort((a,b) => b[1]-a[1]);
 
-            document.getElementById('stats-container').innerHTML = sorted.map(([name, amt], i) => `
-                <div onclick="filterByAgent('${name}')" class="panel p-4 rounded-2xl flex justify-between items-center active:bg-white/5">
-                    <span class="text-sm font-bold">${i === 0 ? '🥇' : i+1+'.'} ${name}</span>
-                    <span class="font-black text-sm" style="color: var(--accent)">$${amt.toLocaleString()}</span>
+            daily.forEach(d => {
+                if(d.deal_type === 'FTD') ftds++; else deps++;
+                if(methods[d.payment_method] !== undefined) methods[d.payment_method]++;
+                agents[d.agent_name] = agents[d.agent_name] || {amt: 0, count: 0};
+                agents[d.agent_name].amt += d.amount;
+                agents[d.agent_name].count += 1;
+            });
+
+            // Ratio Visualizer
+            const totalDeals = daily.length || 1;
+            document.getElementById('ftd-count').innerText = `FTD: ${ftds}`;
+            document.getElementById('dep-count').innerText = `DEP: ${deps}`;
+            document.getElementById('ftd-bar').style.width = `${(ftds/totalDeals)*100}%`;
+            document.getElementById('dep-bar').style.width = `${(deps/totalDeals)*100}%`;
+            document.getElementById('pay-methods').innerText = `Crypto: ${methods.Crypto} | Wire: ${methods.Wire} | Stripe: ${methods.Stripe}`;
+
+            const sorted = Object.entries(agents).sort((a,b) => b[1].amt - a[1].amt);
+            document.getElementById('stats-container').innerHTML = sorted.map(([name, data], i) => `
+                <div class="panel p-4 rounded-2xl flex justify-between items-center">
+                    <span class="text-sm font-bold">${i === 0 ? '🥇' : i+1+'.'} ${name} ${data.count >= 3 ? '🔥' : ''}</span>
+                    <span class="font-black text-sm" style="color: var(--accent)">$${data.amt.toLocaleString()}</span>
                 </div>
             `).join('');
             
-            document.getElementById('s-count').innerText = cache.deals.length;
-            document.getElementById('s-avg').innerText = `$${cache.deals.length ? (cache.deals.reduce((s,d)=>s+d.amount,0)/cache.deals.length).toFixed(0) : 0}`;
+            document.getElementById('s-count').innerText = daily.length;
+            document.getElementById('s-avg').innerText = `$${daily.length ? (daily.reduce((s,d)=>s+d.amount,0)/daily.length).toFixed(0) : 0}`;
         }
 
         function renderBreaks() {
+            // Live Timers
             document.getElementById('b-live').innerHTML = cache.active_breaks.map(b => `
-                <div class="flex justify-between items-center p-4 panel rounded-2xl">
-                    <span class="text-sm font-bold">${b.agent_name}</span>
+                <div class="flex justify-between items-center p-3 panel rounded-xl border border-white/5">
+                    <span class="text-xs font-bold">${b.agent_name}</span>
                     <div class="flex items-center gap-3">
-                        <span class="text-orange-400 font-mono text-sm font-bold timer" data-start="${new Date(b.start_time).getTime()}" data-total="${b.duration*60}">--:--</span>
-                        <button onclick="endBreak('${b.user_id}')" class="text-[10px] bg-red-500/10 text-red-500 px-3 py-1.5 rounded-lg font-bold">STOP</button>
+                        <span class="text-orange-400 font-mono text-xs font-bold timer" data-start="${new Date(b.start_time).getTime()}" data-total="${b.duration*60}">--:--</span>
+                        <button onclick="endBreak('${b.user_id}')" class="text-[10px] bg-red-500 text-white px-2 py-1 rounded font-bold">STOP</button>
                     </div>
                 </div>
-            `).join('') || '<p class="text-xs opacity-30 text-center py-4">No active breaks</p>';
+            `).join('') || '<p class="text-[10px] opacity-30 text-center py-2">No active breaks</p>';
+
+            // Quota Tracker
+            const usage = {};
+            const today = new Date().toISOString().split('T')[0];
+            
+            // Add completed breaks
+            cache.break_logs.filter(b => b.created_at.startsWith(today)).forEach(b => {
+                usage[b.agent_name] = (usage[b.agent_name] || 0) + b.duration;
+            });
+            // Add currently active break time (estimated)
+            cache.active_breaks.forEach(b => {
+                const elapsed = Math.floor((Date.now() - new Date(b.start_time).getTime()) / 60000);
+                usage[b.agent_name] = (usage[b.agent_name] || 0) + elapsed;
+            });
+
+            document.getElementById('b-quota').innerHTML = Object.entries(usage).map(([name, used]) => {
+                const left = Math.max(0, 60 - used);
+                return `<tr><td class="p-3 font-bold">${name}</td><td class="p-3 text-orange-400">${used}m</td><td class="p-3 ${left === 0 ? 'text-red-500' : 'text-emerald-400'}">${left}m</td></tr>`;
+            }).join('') || '<tr><td colspan="3" class="text-center p-4 opacity-30 text-[10px]">No breaks taken today</td></tr>';
         }
 
         function tick() {
@@ -223,7 +291,6 @@
                 const elapsed = Math.floor((Date.now() - parseInt(el.dataset.start)) / 1000);
                 const rem = Math.max(0, parseInt(el.dataset.total) - elapsed);
                 el.innerText = `${Math.floor(rem/60).toString().padStart(2, '0')}:${(rem%60).toString().padStart(2, '0')}`;
-                if(rem === 0) el.classList.replace('text-orange-400', 'text-red-500');
             });
         }
 
@@ -240,18 +307,16 @@
                 document.getElementById('f-type').value = d.deal_type;
                 document.getElementById('f-method').value = d.payment_method;
                 document.getElementById('deal-submit-btn').innerText = "UPDATE DEAL";
-                document.getElementById('deal-delete-btn').classList.remove('hidden');
-                document.getElementById('deal-copy-btn').classList.remove('hidden');
+                document.getElementById('deal-edit-actions').classList.remove('hidden');
             } else {
                 document.getElementById('m-deal-title').innerText = "New Deal";
                 document.getElementById('deal-submit-btn').innerText = "CONFIRM";
-                document.getElementById('deal-delete-btn').classList.add('hidden');
-                document.getElementById('deal-copy-btn').classList.add('hidden');
+                document.getElementById('deal-edit-actions').classList.add('hidden');
                 document.querySelectorAll('#m-deal input').forEach(i => i.value = '');
             }
         }
 
-        async function submitDeal() {
+        async function submitDeal(isDuplicate = false) {
             const body = {
                 agent_name: tg.initDataUnsafe.user?.first_name || "Agent",
                 amount: parseFloat(document.getElementById('f-amt').value),
@@ -260,26 +325,28 @@
                 deal_type: document.getElementById('f-type').value,
                 payment_method: document.getElementById('f-method').value
             };
-            const url = currentEditId ? `/api/admin/deal/${currentEditId}?password=${adminPass || '13012'}` : '/api/deal';
-            await fetch(url, {method: currentEditId ? 'PUT' : 'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body)});
+            
+            const isPut = currentEditId && !isDuplicate;
+            const url = isPut ? `/api/admin/deal/${currentEditId}?password=${adminPass || '13012'}` : '/api/deal';
+            
+            await fetch(url, {method: isPut ? 'PUT' : 'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body)});
+            
             tg.HapticFeedback.notificationOccurred('success');
+            document.getElementById('chime').play().catch(()=>{}); // Play audio cue
             closeModal('m-deal');
+            if(document.getElementById('m-ledger').classList.contains('hidden') === false) openLedger();
             refresh();
         }
 
+        function duplicateDeal() { submitDeal(true); }
+
         async function deleteDeal() {
-            if(!adminPass) adminPass = prompt("Admin Pass to Delete:");
+            if(!adminPass) adminPass = prompt("Admin Pass required:");
             if(!confirm("Permanently delete?")) return;
             await fetch(`/api/admin/deal/${currentEditId}?password=${adminPass}`, {method:'DELETE'});
             closeModal('m-deal');
+            if(document.getElementById('m-ledger').classList.contains('hidden') === false) openLedger();
             refresh();
-        }
-
-        function copyDeal() {
-            const d = cache.deals.find(x => x.id === currentEditId);
-            const text = `💸 *NEW DEAL*\nAgent: ${d.agent_name}\nAmount: $${d.amount}\nType: ${d.deal_type}\nMethod: ${d.payment_method}\nClient: ${d.client_id}`;
-            navigator.clipboard.writeText(text);
-            tg.showAlert("Copied to clipboard!");
         }
 
         // Break Management
@@ -295,13 +362,36 @@
             refresh();
         }
 
-        // Admin
+        // Admin & Master Ledger
         function openAdmin() {
-            adminPass = prompt("Admin Key:");
+            if(!adminPass) adminPass = prompt("Admin Key:");
             if(adminPass === "13012") {
                 document.getElementById('a-goal').value = cache.config.goal || 10000;
                 document.getElementById('m-admin').classList.remove('hidden');
             }
+        }
+
+        function openLedger() {
+            document.getElementById('m-admin').classList.add('hidden');
+            document.getElementById('m-ledger').classList.remove('hidden');
+            document.getElementById('m-ledger').classList.add('flex');
+            renderLedger();
+        }
+
+        function renderLedger() {
+            const dateFilter = document.getElementById('ledger-date').value;
+            let list = cache.deals;
+            if(dateFilter) list = list.filter(d => d.created_at.startsWith(dateFilter));
+
+            document.getElementById('ledger-list').innerHTML = list.map(d => `
+                <div onclick="openDealModal(${d.id})" class="p-4 rounded-xl panel border border-white/10 active:bg-white/5 flex justify-between">
+                    <div>
+                        <p class="text-xs font-bold">${d.agent_name} <span class="text-[8px] opacity-50 font-mono">${d.created_at.split('T')[0]}</span></p>
+                        <p class="text-[10px] opacity-60">${d.client_id} | ${d.deal_type}</p>
+                    </div>
+                    <p class="font-black text-sm text-blue-400">$${d.amount}</p>
+                </div>
+            `).join('') || '<p class="text-center opacity-40 text-xs py-10">No records found</p>';
         }
 
         async function saveAdminConfig() {
@@ -316,18 +406,34 @@
             refresh();
         }
 
-        function exportCSV() {
-            const headers = "ID,Agent,Amount,Type,Method,ClientID,Date\n";
-            const rows = cache.deals.map(d => `${d.id},${d.agent_name},${d.amount},${d.deal_type},${d.payment_method},${d.client_id},${d.created_at}`).join("\n");
+        function exportCSV(type) {
+            let headers, rows, filename;
+            if(type === 'deals') {
+                headers = "ID,Agent,Amount,Type,Method,ClientID,Date\n";
+                rows = cache.deals.map(d => `${d.id},${d.agent_name},${d.amount},${d.deal_type},${d.payment_method},${d.client_id},${d.created_at}`).join("\n");
+                filename = 'deal_ledger.csv';
+            } else {
+                headers = "Agent,Duration(m),Date\n";
+                rows = cache.break_logs.map(b => `${b.agent_name},${b.duration},${b.created_at}`).join("\n");
+                filename = 'break_logs.csv';
+            }
             const blob = new Blob([headers + rows], { type: 'text/csv' });
             const url = window.URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url; a.download = 'shift_report.csv'; a.click();
+            const a = document.createElement('a'); a.href = url; a.download = filename; a.click();
         }
 
         // Utils
-        function toggleTheme() { document.body.classList.toggle('theme-green'); }
-        function closeModal(id) { document.getElementById(id).classList.add('hidden'); }
+        function toggleTheme() {
+            document.body.classList.remove(themes[themeIndex]);
+            themeIndex = (themeIndex + 1) % themes.length;
+            if(themes[themeIndex] !== 'dark') document.body.classList.add(themes[themeIndex]);
+        }
+        
+        function closeModal(id) { 
+            document.getElementById(id).classList.add('hidden'); 
+            if(id === 'm-ledger') document.getElementById(id).classList.remove('flex');
+        }
+        
         function nav(p) {
             document.querySelectorAll('.page').forEach(el => el.classList.remove('active'));
             document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
