@@ -1,4 +1,5 @@
 import os
+from datetime import datetime, timedelta
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import HTMLResponse
 from pydantic import BaseModel
@@ -28,8 +29,13 @@ async def home():
 async def get_dashboard():
     deals = supabase.table("deals").select("*").order('created_at', desc=True).execute().data
     breaks = supabase.table("active_breaks").select("*").execute().data
+    
+    # Fetch break logs from the last 24 hours to calculate quotas
+    yesterday = (datetime.utcnow() - timedelta(days=1)).isoformat()
+    break_logs = supabase.table("break_logs").select("*").gte("created_at", yesterday).execute().data
+    
     config = supabase.table("settings").select("value").eq("key", "shift_config").execute().data[0]['value']
-    return {"deals": deals, "active_breaks": breaks, "config": config}
+    return {"deals": deals, "active_breaks": breaks, "break_logs": break_logs, "config": config}
 
 @app.post("/api/deal")
 async def add_deal(deal: DealModel):
@@ -55,6 +61,14 @@ async def start_break(data: dict):
 
 @app.post("/api/break/end")
 async def end_break(data: dict):
+    # Log the completed break before deleting
+    active = supabase.table("active_breaks").select("*").eq("user_id", data["user_id"]).execute().data
+    if active:
+        b = active[0]
+        supabase.table("break_logs").insert({
+            "user_id": str(b["user_id"]), "agent_name": b["agent_name"], "duration": b["duration"]
+        }).execute()
+        
     supabase.table("active_breaks").delete().eq("user_id", data["user_id"]).execute()
     return {"status": "success"}
 
