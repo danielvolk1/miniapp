@@ -7,10 +7,7 @@ from supabase import create_client, Client
 import uvicorn
 
 app = FastAPI()
-
-SUPABASE_URL = os.environ.get("SUPABASE_URL")
-SUPABASE_KEY = os.environ.get("SUPABASE_KEY")
-supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
+supabase: Client = create_client(os.environ.get("SUPABASE_URL"), os.environ.get("SUPABASE_KEY"))
 
 class DealModel(BaseModel):
     agent_name: str
@@ -19,33 +16,25 @@ class DealModel(BaseModel):
     client_email: str
     deal_type: str
     payment_method: str
-    notes: str = ""
-    tag: str = "Standard"
     asset_class: str = "Standard"
+    tag: str = "Standard"
+    notes: str = ""
 
 @app.get("/", response_class=HTMLResponse)
 async def home():
-    with open("index.html", "r", encoding="utf-8") as f:
-        return f.read()
+    with open("index.html", "r", encoding="utf-8") as f: return f.read()
 
 @app.get("/api/dashboard")
 async def get_dashboard():
-    thirty_days_ago = (datetime.now(timezone.utc) - timedelta(days=30)).isoformat()
-    
-    deals = supabase.table("deals").select("*").gte("created_at", thirty_days_ago).order('created_at', desc=True).execute().data
-    breaks = supabase.table("active_breaks").select("*").execute().data
-    break_logs = supabase.table("break_logs").select("*").gte("created_at", thirty_days_ago).execute().data
-    playbook = supabase.table("playbook").select("*").execute().data
-    chat = supabase.table("floor_chat").select("*").order('created_at', desc=True).limit(20).execute().data
-    
-    targets_data = supabase.table("settings").select("value").eq("key", "system_targets").execute().data
-    targets = targets_data[0]['value'] if targets_data else {"daily": 10000, "badges": {}, "force_refresh": 0}
-    announcement = supabase.table("announcements").select("*").order('created_at', desc=True).limit(1).execute().data
-    
+    window = (datetime.now(timezone.utc) - timedelta(days=30)).isoformat()
     return {
-        "deals": deals, "active_breaks": breaks, "break_logs": break_logs, 
-        "targets": targets, "announcement": announcement[0] if announcement else None,
-        "playbook": playbook, "chat": chat
+        "deals": supabase.table("deals").select("*").gte("created_at", window).order('created_at', desc=True).execute().data,
+        "active_breaks": supabase.table("active_breaks").select("*").execute().data,
+        "break_logs": supabase.table("break_logs").select("*").gte("created_at", window).execute().data,
+        "playbook": supabase.table("playbook").select("*").execute().data,
+        "chat": supabase.table("floor_chat").select("*").order('created_at', desc=True).limit(30).execute().data,
+        "targets": supabase.table("settings").select("value").eq("key", "system_targets").execute().data[0]['value'],
+        "announcement": next(iter(supabase.table("announcements").select("*").order('created_at', desc=True).limit(1).execute().data), None)
     }
 
 @app.post("/api/deal")
@@ -77,11 +66,8 @@ async def end_break(data: dict):
     if active:
         b = active[0]
         start_time = datetime.fromisoformat(b["start_time"].replace("Z", "+00:00"))
-        duration_minutes = int((datetime.now(timezone.utc) - start_time).total_seconds() / 60)
-        supabase.table("break_logs").insert({
-            "user_id": str(b["user_id"]), "agent_name": b["agent_name"], 
-            "duration": max(0, duration_minutes), "break_type": b.get("break_type", "small")
-        }).execute()
+        duration = int((datetime.now(timezone.utc) - start_time).total_seconds() / 60)
+        supabase.table("break_logs").insert({"user_id": str(b["user_id"]), "agent_name": b["agent_name"], "duration": max(0, duration), "break_type": b.get("break_type", "small")}).execute()
     supabase.table("active_breaks").delete().eq("user_id", data["user_id"]).execute()
     return {"status": "success"}
 
@@ -90,23 +76,10 @@ async def post_chat(data: dict):
     supabase.table("floor_chat").insert({"agent_name": data["agent_name"], "message": data["message"]}).execute()
     return {"status": "ok"}
 
-# --- ADMIN API ---
 @app.post("/api/admin/system")
 async def update_system(data: dict):
     if data.get("password") != "13012": raise HTTPException(status_code=403)
     supabase.table("settings").upsert({"key": "system_targets", "value": data["config"]}).execute()
-    return {"status": "ok"}
-
-@app.post("/api/admin/broadcast")
-async def send_broadcast(data: dict):
-    if data.get("password") != "13012": raise HTTPException(status_code=403)
-    supabase.table("announcements").insert({"message": data["message"]}).execute()
-    return {"status": "ok"}
-
-@app.post("/api/admin/playbook")
-async def add_script(data: dict):
-    if data.get("password") != "13012": raise HTTPException(status_code=403)
-    supabase.table("playbook").insert({"title": data["title"], "content": data["content"], "category": data.get("category", "General")}).execute()
     return {"status": "ok"}
 
 if __name__ == "__main__":
