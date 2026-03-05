@@ -6,222 +6,187 @@
     <title>Lyman - Global Markets</title>
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
-    <script src="https://unpkg.com/lightweight-charts/dist/lightweight-charts.standalone.production.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
-        :root { --bg: #020617; --accent: #3b82f6; --accent-glow: rgba(59, 130, 246, 0.4); }
-        body { background-color: var(--bg); color: #f8fafc; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; overflow-y: auto; -webkit-overflow-scrolling: touch; margin: 0; padding: 0; }
+        :root { --bg: #020617; --accent: #3b82f6; --defcon: #10b981; }
+        body { background-color: var(--bg); color: #f8fafc; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; overflow-y: auto; -webkit-overflow-scrolling: touch; }
         
-        /* Lyman Glassmorphism & Parallax Elements */
-        .glass { background: rgba(15, 23, 42, 0.6); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); border: 1px solid rgba(255, 255, 255, 0.08); box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2); }
-        .glass-panel { background: linear-gradient(145deg, rgba(30,41,59,0.7) 0%, rgba(2,6,23,0.9) 100%); backdrop-filter: blur(20px); border: 1px solid rgba(255,255,255,0.05); border-top: 1px solid rgba(255,255,255,0.1); }
-        .neon-border { box-shadow: 0 0 10px var(--accent-glow), inset 0 0 10px var(--accent-glow); border: 1px solid var(--accent); }
+        .glass { background: rgba(15, 23, 42, 0.7); backdrop-filter: blur(16px); border: 1px solid rgba(255, 255, 255, 0.05); }
+        .glass-card { background: linear-gradient(145deg, rgba(30,41,59,0.9) 0%, rgba(2,6,23,0.95) 100%); backdrop-filter: blur(20px); border: 1px solid rgba(255,255,255,0.05); }
         
-        /* Smooth UI */
-        .page { display: none; padding: 16px; padding-bottom: 100px; min-height: 100vh; animation: fadeUp 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+        /* DEFCON Border System */
+        .defcon-border { transition: all 0.5s; box-shadow: 0 0 15px rgba(var(--defcon-rgb), 0.2), inset 0 0 10px rgba(var(--defcon-rgb), 0.1); border: 1px solid var(--defcon); }
+        
+        /* Animations & Structure */
+        .page { display: none; padding: 16px; padding-bottom: 100px; min-height: 100vh; animation: fade 0.3s ease; }
         .page.active { display: block; }
-        @keyframes fadeUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes fade { from { opacity: 0; } to { opacity: 1; } }
         
-        input, select, textarea { background: rgba(0,0,0,0.4) !important; color: white !important; border: 1px solid rgba(255,255,255,0.1) !important; outline: none; border-radius: 12px; padding: 14px; pointer-events: auto !important; width: 100%; transition: all 0.2s; }
-        input:focus, select:focus, textarea:focus { border-color: var(--accent) !important; box-shadow: 0 0 0 3px rgba(59,130,246,0.2); }
+        input, select, textarea { background: rgba(0,0,0,0.5) !important; color: white !important; border: 1px solid rgba(255,255,255,0.1) !important; outline: none; border-radius: 12px; padding: 14px; width: 100%; transition: 0.2s; }
+        input:focus, select:focus, textarea:focus { border-color: var(--accent) !important; box-shadow: 0 0 0 2px rgba(59,130,246,0.2); }
         
-        .nav-item { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; opacity: 0.4; transition: all 0.3s; padding: 10px 0; }
-        .nav-item.active { color: var(--accent); opacity: 1; transform: translateY(-4px); }
-        .avatar { display: flex; align-items: center; justify-content: center; border-radius: 50%; background: linear-gradient(135deg, #2563eb, #9333ea); color: white; font-weight: 900; box-shadow: 0 4px 15px rgba(37, 99, 235, 0.4); }
-        
-        /* Ticker */
-        .ticker-wrap { width: 100%; overflow: hidden; background: #000; border-bottom: 1px solid rgba(255,255,255,0.1); }
-        .ticker { display: inline-block; white-space: nowrap; padding-left: 100%; animation: ticker 25s linear infinite; }
-        @keyframes ticker { 0% { transform: translate(0, 0); } 100% { transform: translate(-100%, 0); } }
-        
+        .nav-item { flex: 1; display: flex; flex-direction: column; align-items: center; opacity: 0.4; transition: 0.3s; padding: 10px 0; }
+        .nav-item.active { color: var(--accent); opacity: 1; }
         .no-scrollbar::-webkit-scrollbar { display: none; }
+        
+        /* Order Book Styles */
+        .book-row { display: grid; grid-template-columns: 2fr 1fr 1.5fr; gap: 8px; font-family: monospace; font-size: 10px; padding: 6px 0; border-bottom: 1px solid rgba(255,255,255,0.02); }
     </style>
 </head>
 <body>
 
-    <header class="glass sticky top-0 z-40 px-4 py-3 flex justify-between items-center">
+    <header class="glass sticky top-0 z-40 px-4 py-3 flex justify-between items-center border-b" id="top-header">
         <div>
-            <h1 class="font-black text-xl tracking-tighter text-white">LYMAN <span class="text-blue-500 font-light">GM</span></h1>
+            <h1 class="font-black text-xl tracking-tighter">LYMAN <span class="text-blue-500 font-light">GM</span></h1>
             <div class="flex items-center gap-2 mt-0.5">
-                <span id="conn-status" class="w-2 h-2 rounded-full bg-emerald-500 shadow-[0_0_8px_#10b981] animate-pulse"></span>
-                <span id="server-time" class="text-[10px] font-mono opacity-60">Connecting...</span>
+                <span id="conn-status" class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                <span id="defcon-status" class="text-[9px] font-bold uppercase tracking-widest text-emerald-400">DEFCON: NORMAL</span>
             </div>
         </div>
-        <button onclick="openAdmin()" class="bg-white/5 border border-white/10 px-4 py-2 rounded-xl text-[10px] font-bold transition active:scale-95 hover:bg-white/10">CONTROL</button>
+        <button onclick="openAdmin()" class="bg-red-500/10 border border-red-500/20 text-red-500 px-3 py-1.5 rounded-lg text-[10px] font-bold active:scale-95">GOD MODE</button>
     </header>
 
-    <div class="ticker-wrap py-1.5 flex items-center">
-        <span class="bg-blue-600 text-white text-[9px] font-black px-2 py-0.5 ml-2 rounded uppercase z-10 absolute shadow-lg">LIVE</span>
-        <div class="ticker text-[10px] font-mono font-bold text-slate-300">
-            BTC/USD <span class="text-emerald-400">92,450.00 ▲</span> &nbsp;&nbsp;&nbsp; ETH/USD <span class="text-red-400">3,120.50 ▼</span> &nbsp;&nbsp;&nbsp; EUR/USD <span class="text-emerald-400">1.0845 ▲</span> &nbsp;&nbsp;&nbsp; XAU/USD <span class="text-emerald-400">2,340.10 ▲</span> &nbsp;&nbsp;&nbsp; SPX <span class="text-red-400">5,120.25 ▼</span>
-        </div>
-    </div>
-
-    <div id="banner" class="hidden bg-amber-500 text-black text-[11px] font-black uppercase tracking-widest text-center py-2 shadow-[0_0_15px_rgba(245,158,11,0.5)]">
-        <span id="banner-txt" class="animate-pulse"></span>
-    </div>
+    <div id="banner" class="hidden bg-amber-500 text-black text-[10px] font-black uppercase tracking-widest text-center py-2"><span id="banner-txt" class="animate-pulse"></span></div>
 
     <main id="tab-floor" class="page active">
-        <div id="chart-container-wrap" class="glass-panel rounded-3xl p-1 mb-4 h-48 relative overflow-hidden">
-            <div class="absolute top-3 left-4 z-10 text-[10px] font-bold opacity-50 uppercase tracking-widest">Floor Momentum</div>
-            <div id="tv-chart" class="w-full h-full rounded-2xl overflow-hidden"></div>
-        </div>
-
-        <div class="glass-panel p-6 rounded-[2rem] mb-6 relative overflow-hidden">
-            <div class="absolute -right-20 -top-20 w-64 h-64 bg-blue-600/20 rounded-full blur-3xl pointer-events-none"></div>
-            <div class="flex justify-between items-start relative z-10">
-                <div>
-                    <p class="text-[10px] font-bold opacity-60 uppercase tracking-widest text-blue-300">Today's Volume</p>
-                    <h2 id="h-total" class="text-4xl font-black mb-1 drop-shadow-xl">$0</h2>
-                </div>
-                <div class="w-12 h-12 rounded-full border-4 border-slate-800 flex items-center justify-center relative">
-                    <div id="h-ring" class="absolute inset-0 rounded-full border-4 border-emerald-500 transition-all duration-1000" style="clip-path: polygon(0 0, 100% 0, 100% 100%, 0 100%);"></div>
-                    <span id="h-pct" class="text-[10px] font-black z-10">0%</span>
-                </div>
+        <div id="floor-dash" class="glass-card p-6 rounded-[2rem] mb-4 defcon-border relative overflow-hidden">
+            <p class="text-[10px] font-bold opacity-60 uppercase tracking-widest mb-1">Live Volume</p>
+            <h2 id="h-total" class="text-4xl font-black mb-4">$0</h2>
+            
+            <div class="bg-black/40 rounded-full h-2 mb-2">
+                <div id="h-bar" class="bg-blue-500 h-full rounded-full transition-all duration-1000 w-0"></div>
             </div>
-            <p id="h-target" class="text-[10px] opacity-50 font-mono mt-2">Target: $0</p>
+            <div class="flex justify-between items-center">
+                <p id="h-target" class="text-[10px] opacity-50 font-mono">Target: $0</p>
+                <p id="h-pct" class="text-xs font-black text-blue-400">0%</p>
+            </div>
         </div>
 
-        <div class="flex justify-between items-end mb-3 px-2">
-            <h3 class="text-xs font-bold opacity-50 uppercase tracking-widest">Live Execution Feed</h3>
+        <div class="glass-card p-4 rounded-3xl mb-6">
+            <div class="flex justify-between items-center mb-3">
+                <h3 class="text-xs font-bold opacity-50 uppercase tracking-widest">Live Order Book</h3>
+                <span class="text-[9px] font-mono text-emerald-400 animate-pulse">● SYNCED</span>
+            </div>
+            <div class="bg-black/50 rounded-xl p-3">
+                <div class="grid grid-cols-3 text-[9px] font-bold opacity-50 uppercase mb-2 px-1"><span>Agent</span><span>Size</span><span class="text-right">Asset</span></div>
+                <div id="order-book" class="space-y-1 max-h-48 overflow-y-auto no-scrollbar"></div>
+            </div>
         </div>
-        
-        <div id="feed-list" class="space-y-3"></div>
+
+        <h3 class="text-xs font-bold opacity-50 uppercase tracking-widest mb-3 px-2">Pre-IPO Allocations</h3>
+        <div id="allocations-list" class="space-y-3 mb-6"></div>
     </main>
 
-    <main id="tab-wallet" class="page">
-        <div class="glass-panel p-8 rounded-[2.5rem] mb-6 text-center shadow-[0_10px_40px_rgba(16,185,129,0.1)] border-emerald-500/20">
-            <p class="text-[10px] font-bold opacity-60 uppercase tracking-widest text-emerald-400">Est. Commission</p>
-            <h2 id="w-comm" class="text-5xl font-black my-2">$0</h2>
-            <p id="w-tier" class="text-[10px] font-bold opacity-50 uppercase bg-slate-800 inline-block px-3 py-1 rounded-full">Tier 1 (5%)</p>
+    <main id="tab-data" class="page">
+        <div class="glass-card p-4 rounded-3xl mb-4 flex justify-center h-48 relative">
+            <h3 class="absolute top-4 left-4 text-[10px] font-bold opacity-50 uppercase">Asset Distribution</h3>
+            <canvas id="assetChart"></canvas>
         </div>
 
-        <h3 class="text-xs font-bold opacity-50 uppercase tracking-widest mb-3 px-2">Floor Leaderboard</h3>
-        <div id="stats-container" class="space-y-3"></div>
+        <div class="grid grid-cols-2 gap-3 mb-6">
+            <div class="glass-card p-4 rounded-2xl"><p class="text-[10px] opacity-50 font-bold uppercase">Total Deals</p><p id="s-deals" class="text-xl font-black text-blue-400">0</p></div>
+            <div class="glass-card p-4 rounded-2xl"><p class="text-[10px] opacity-50 font-bold uppercase">Win Rate</p><p id="s-winrate" class="text-xl font-black text-emerald-400">0%</p></div>
+        </div>
+
+        <h3 class="text-xs font-bold opacity-50 uppercase tracking-widest mb-3 px-2">Leaderboard</h3>
+        <div id="stats-container" class="space-y-2"></div>
     </main>
 
     <main id="tab-shift" class="page">
-        <div id="chat-wrapper" class="glass-panel rounded-3xl p-4 mb-6 flex flex-col h-72">
-            <div class="flex justify-between items-center mb-2 pb-2 border-b border-white/5">
-                <h3 class="text-[10px] font-bold opacity-50 uppercase tracking-widest">Floor Comms</h3>
-                <span class="flex h-2 w-2 relative"><span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span><span class="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span></span>
+        <div class="glass-card rounded-3xl p-5 mb-6">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-xs font-bold opacity-50 uppercase tracking-widest">Break Terminal</h3>
+                <span id="team-count" class="text-xs font-black text-emerald-400">0 Online</span>
             </div>
-            <div id="chat-box" class="flex-1 overflow-y-auto space-y-3 pr-2 mb-3 no-scrollbar flex flex-col-reverse"></div>
-            <div class="flex gap-2 relative z-10">
-                <input id="chat-input" type="text" placeholder="Drop hype..." class="flex-1 bg-black/50 border-none text-sm px-4 py-3 rounded-xl" onkeypress="if(event.key==='Enter')submitChat()">
-                <button onclick="submitChat()" class="bg-blue-600 px-5 rounded-xl font-black shadow-lg hover:bg-blue-500 transition">SEND</button>
+            <div class="grid grid-cols-2 gap-3 mb-4">
+                <button onclick="takeBreak('big')" class="bg-black/30 border border-blue-500/30 p-4 rounded-2xl text-xs font-bold active:bg-blue-900/20">🍽️ Big (45m)</button>
+                <button onclick="takeBreak('small')" class="bg-black/30 border border-orange-500/30 p-4 rounded-2xl text-xs font-bold active:bg-orange-900/20">☕ Small (45m)</button>
             </div>
+            <div id="b-live" class="space-y-2"></div>
         </div>
 
-        <h3 class="text-xs font-bold opacity-50 uppercase tracking-widest mb-3 px-2">Break Management</h3>
-        <div class="grid grid-cols-2 gap-3 mb-4">
-            <button onclick="takeBreak('big')" class="glass-panel p-5 rounded-2xl text-sm font-bold border-l-4 border-blue-500 active:scale-95 transition">🍽️ Big (45m)</button>
-            <button onclick="takeBreak('small')" class="glass-panel p-5 rounded-2xl text-sm font-bold border-l-4 border-orange-500 active:scale-95 transition">☕ Small (Pool)</button>
+        <h3 class="text-xs font-bold opacity-50 uppercase tracking-widest mb-3 px-2">The Vault (Docs)</h3>
+        <div class="space-y-3">
+            <div class="glass-card p-4 rounded-2xl flex justify-between items-center">
+                <div><p class="font-bold text-sm">US Bank Wire Instructions</p><p class="text-[10px] opacity-50">Lyman Global Markets LLC</p></div>
+                <button onclick="copyToClip('US Wire Data...')" class="bg-white/10 px-3 py-1.5 rounded-lg text-[9px] font-bold">COPY</button>
+            </div>
+            <div class="glass-card p-4 rounded-2xl flex justify-between items-center">
+                <div><p class="font-bold text-sm">Crypto Deposit Addresses</p><p class="text-[10px] opacity-50">ERC20 / TRC20 / BTC</p></div>
+                <button onclick="copyToClip('USDT TRC20: T...') " class="bg-white/10 px-3 py-1.5 rounded-lg text-[9px] font-bold">COPY</button>
+            </div>
         </div>
-        <div id="b-live" class="space-y-3"></div>
     </main>
 
     <nav class="glass fixed bottom-0 w-full flex justify-around pb-8 pt-3 px-2 z-40">
-        <button onclick="nav('floor')" id="n-floor" class="nav-item active"><span class="text-2xl mb-1">📉</span><span class="text-[9px] font-bold tracking-wider">FLOOR</span></button>
-        <button onclick="nav('wallet')" id="n-wallet" class="nav-item"><span class="text-2xl mb-1">💼</span><span class="text-[9px] font-bold tracking-wider">WALLET</span></button>
+        <button onclick="nav('floor')" id="n-floor" class="nav-item active"><span class="text-2xl mb-1">📊</span><span class="text-[9px] font-bold tracking-wider">FLOOR</span></button>
+        <button onclick="nav('data')" id="n-data" class="nav-item"><span class="text-2xl mb-1">📈</span><span class="text-[9px] font-bold tracking-wider">DATA</span></button>
         <button onclick="nav('shift')" id="n-shift" class="nav-item"><span class="text-2xl mb-1">⚡</span><span class="text-[9px] font-bold tracking-wider">HUB</span></button>
     </nav>
 
-    <button onclick="openModal('m-deal')" class="fixed bottom-28 right-5 w-16 h-16 rounded-full bg-gradient-to-r from-blue-600 to-indigo-600 shadow-[0_10px_25px_rgba(37,99,235,0.6)] text-3xl font-black flex items-center justify-center z-40 text-white transition-transform active:scale-90 border border-blue-400/30">
-        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M12 4v16m8-8H4"></path></svg>
+    <button onclick="openModal('m-deal')" class="fixed bottom-28 right-5 w-16 h-16 rounded-full bg-blue-600 shadow-[0_0_25px_rgba(37,99,235,0.6)] text-3xl font-black flex items-center justify-center z-40 text-white transition-transform active:scale-90 border border-blue-400/30">
+        +
     </button>
 
     <div id="m-deal" class="fixed inset-0 bg-slate-950/95 backdrop-blur-xl z-[100] hidden flex flex-col justify-end">
-        <div class="glass-panel rounded-t-[2.5rem] p-6 pb-12 w-full animate-fade-in border-t border-blue-500/30 shadow-[0_-10px_40px_rgba(59,130,246,0.15)] relative">
-            <button onclick="closeModal('m-deal')" class="absolute top-6 right-6 text-2xl opacity-50 p-2">✕</button>
-            <h2 class="text-2xl font-black mb-6 tracking-tighter">Execute Trade</h2>
-            
+        <div class="glass-card rounded-t-[2.5rem] p-6 pb-12 w-full border-t border-blue-500/30">
+            <div class="flex justify-between items-center mb-6"><h2 class="text-2xl font-black tracking-tighter">Execute Trade</h2><button onclick="closeModal('m-deal')" class="text-2xl opacity-50 p-2">✕</button></div>
             <div class="space-y-4">
                 <input id="f-cid" type="text" placeholder="Client ID / Name" class="text-lg font-bold bg-black/40">
+                <input id="f-amt" type="number" placeholder="Amount ($)" class="text-3xl font-black text-blue-400 text-center py-5 bg-black/60 border-blue-500/50">
                 
-                <div class="relative">
-                    <input id="f-amt" type="number" placeholder="Amount ($)" class="text-3xl font-black text-blue-400 text-center py-6 bg-black/60 neon-border">
-                    <div class="grid grid-cols-4 gap-2 mt-3">
-                        <button onclick="addAmt(1000)" class="bg-white/5 border border-white/10 py-2 rounded-xl text-xs font-bold active:bg-white/20">+1k</button>
-                        <button onclick="addAmt(5000)" class="bg-white/5 border border-white/10 py-2 rounded-xl text-xs font-bold active:bg-white/20">+5k</button>
-                        <button onclick="addAmt(10000)" class="bg-white/5 border border-white/10 py-2 rounded-xl text-xs font-bold active:bg-white/20 text-amber-400">+10k</button>
-                        <button onclick="addAmt(50000)" class="bg-white/5 border border-white/10 py-2 rounded-xl text-xs font-bold active:bg-white/20 text-purple-400">+50k</button>
-                    </div>
-                </div>
-
                 <div class="grid grid-cols-2 gap-3">
                     <select id="f-type" class="font-bold"><option>FTD</option><option>Deposit</option></select>
-                    <select id="f-class" class="font-bold"><option value="Equities">📈 Equities</option><option value="Crypto">₿ Crypto</option><option value="Pre-IPO">🚀 Pre-IPO</option><option value="Forex">💱 Forex</option></select>
+                    <select id="f-class" class="font-bold text-xs"><option>Equities</option><option>Crypto</option><option>SpaceX Pre-IPO</option><option>AI Data Centers</option></select>
                 </div>
-                <select id="f-method" class="font-bold"><option>Crypto Transfer</option><option>Bank Wire</option><option>Credit Card</option></select>
+                <select id="f-method" class="font-bold text-xs"><option>Crypto Transfer</option><option>Bank Wire</option><option>Credit Card</option></select>
+                <textarea id="f-notes" placeholder="TxID / Notes (Optional)" class="h-16 text-sm"></textarea>
                 
-                <button onclick="submitDeal()" id="btn-submit" class="w-full bg-gradient-to-r from-blue-600 to-indigo-600 py-5 rounded-2xl font-black text-white shadow-[0_10px_20px_rgba(37,99,235,0.4)] text-xl active:scale-95 transition mt-2">CONFIRM EXECUTION</button>
+                <button onclick="submitDeal()" id="btn-submit" class="w-full bg-blue-600 py-5 rounded-2xl font-black text-white shadow-lg text-xl active:scale-95 transition">CONFIRM EXECUTION</button>
             </div>
         </div>
     </div>
 
     <div id="m-admin" class="fixed inset-0 bg-slate-950/98 backdrop-blur-2xl z-[200] hidden flex flex-col">
         <div class="pt-12 pb-4 px-6 border-b border-white/10 flex justify-between items-center bg-black/20">
-            <h2 class="text-2xl font-black tracking-tighter text-red-500 flex items-center gap-2">🛡️ GOD MODE</h2>
+            <h2 class="text-2xl font-black tracking-tighter text-red-500">🛡️ GOD MODE</h2>
             <button onclick="closeModal('m-admin')" class="bg-white/10 px-4 py-2 rounded-xl text-xs font-bold active:scale-95">CLOSE</button>
         </div>
         
-        <div class="flex p-2 gap-1 border-b border-white/5 bg-black/40 overflow-x-auto no-scrollbar">
-            <button onclick="switchAdminTab('a-ops')" id="tab-a-ops" class="flex-1 py-3 px-4 rounded-xl text-xs font-bold bg-white/10 whitespace-nowrap">⚙️ Ops</button>
-            <button onclick="switchAdminTab('a-ledger')" id="tab-a-ledger" class="flex-1 py-3 px-4 rounded-xl text-xs font-bold opacity-50 whitespace-nowrap">📂 Ledger</button>
-            <button onclick="switchAdminTab('a-danger')" id="tab-a-danger" class="flex-1 py-3 px-4 rounded-xl text-xs font-bold opacity-50 text-red-400 whitespace-nowrap">⚠️ Danger</button>
-        </div>
-
-        <div class="flex-1 overflow-y-auto p-6">
-            <div id="view-a-ops" class="admin-view space-y-6">
-                <div class="glass-panel p-5 rounded-3xl">
-                    <h3 class="text-xs font-bold opacity-50 uppercase tracking-widest mb-4">Floor Targets ($)</h3>
-                    <div class="space-y-3">
-                        <div class="flex items-center gap-4"><label class="w-16 text-sm font-bold opacity-70">Daily</label><input id="a-t-daily" type="number" class="flex-1 text-right font-mono font-bold"></div>
-                        <div class="flex items-center gap-4"><label class="w-16 text-sm font-bold opacity-70">Weekly</label><input id="a-t-weekly" type="number" class="flex-1 text-right font-mono font-bold"></div>
-                        <button onclick="saveAdmin()" class="w-full bg-blue-600 py-3 rounded-xl font-bold mt-2">SAVE TARGETS</button>
-                    </div>
+        <div class="flex-1 overflow-y-auto p-6 space-y-6">
+            <div class="glass-card p-5 rounded-3xl">
+                <h3 class="text-xs font-bold opacity-50 uppercase tracking-widest mb-4">Floor Operations</h3>
+                <div class="space-y-3 mb-4">
+                    <div class="flex items-center gap-4"><label class="w-16 text-xs font-bold opacity-70">Daily Goal</label><input id="a-t-daily" type="number" class="flex-1 text-right font-mono font-bold"></div>
                 </div>
-                
-                <div class="glass-panel p-5 rounded-3xl">
-                    <h3 class="text-xs font-bold opacity-50 uppercase tracking-widest mb-4">Global Broadcast</h3>
-                    <textarea id="a-alert" placeholder="Push an alert to all agents..." class="h-20 mb-3"></textarea>
-                    <button onclick="sendAlert()" class="w-full bg-amber-600 py-3 rounded-xl font-bold">PUSH ALERT</button>
+                <h4 class="text-[10px] font-bold opacity-50 uppercase mb-2">DEFCON Level</h4>
+                <div class="flex gap-2 mb-4">
+                    <button onclick="setDefcon('green')" class="flex-1 bg-emerald-900/40 border border-emerald-500 text-emerald-400 py-2 rounded-xl text-xs font-bold">NORMAL</button>
+                    <button onclick="setDefcon('yellow')" class="flex-1 bg-amber-900/40 border border-amber-500 text-amber-400 py-2 rounded-xl text-xs font-bold">PUSH</button>
+                    <button onclick="setDefcon('red')" class="flex-1 bg-red-900/40 border border-red-500 text-red-400 py-2 rounded-xl text-xs font-bold">PWR HOUR</button>
                 </div>
-                
-                <div class="glass-panel p-5 rounded-3xl">
-                    <h3 class="text-xs font-bold opacity-50 uppercase tracking-widest mb-4">Feature Toggles</h3>
-                    <div class="space-y-3">
-                        <label class="flex justify-between items-center bg-black/20 p-3 rounded-xl"><span class="font-bold text-sm">Floor Chat</span><input type="checkbox" id="a-t-chat" class="w-6 h-6"></label>
-                        <label class="flex justify-between items-center bg-black/20 p-3 rounded-xl"><span class="font-bold text-sm">Trading Chart</span><input type="checkbox" id="a-t-chart" class="w-6 h-6"></label>
-                    </div>
-                </div>
+                <button onclick="saveAdmin()" class="w-full bg-blue-600 py-3 rounded-xl font-bold">SAVE STATE</button>
             </div>
 
-            <div id="view-a-ledger" class="admin-view hidden space-y-4">
-                <input type="text" id="a-search" oninput="renderAdminLedger()" placeholder="Search Agent or Client ID..." class="sticky top-0 z-10">
-                <p class="text-[10px] text-amber-500 font-bold uppercase tracking-widest">Tap any deal to Edit or Void</p>
-                <div id="a-ledger-list" class="space-y-2"></div>
+            <div class="glass-card p-5 rounded-3xl">
+                <h3 class="text-xs font-bold opacity-50 uppercase tracking-widest mb-4">Ledger Control</h3>
+                <input type="text" id="a-search" oninput="renderAdminLedger()" placeholder="Search to Edit/Void..." class="mb-3 text-sm">
+                <div id="a-ledger-list" class="space-y-2 max-h-40 overflow-y-auto bg-black/30 p-2 rounded-xl mb-3"></div>
+                <button onclick="ghostDeal()" class="w-full bg-purple-600/20 text-purple-400 border border-purple-500/30 py-3 rounded-xl font-bold text-xs">👻 GHOST LOG DEAL</button>
             </div>
 
-            <div id="view-a-danger" class="admin-view hidden space-y-4">
-                <div class="border border-red-500/30 bg-red-900/10 p-5 rounded-3xl space-y-4">
-                    <h3 class="font-black text-red-500 uppercase tracking-widest mb-2">Master Overrides</h3>
-                    <button onclick="executeDanger('clear_breaks')" class="w-full bg-red-500/20 text-red-400 py-4 rounded-xl font-bold border border-red-500/30">STOP ALL ACTIVE TIMERS</button>
-                    <button onclick="executeDanger('wipe_chat')" class="w-full bg-red-500/20 text-red-400 py-4 rounded-xl font-bold border border-red-500/30">CLEAR CHAT HISTORY</button>
-                    <button onclick="executeDanger('wipe_today_deals')" class="w-full bg-red-600 text-white py-4 rounded-xl font-black shadow-[0_0_20px_rgba(220,38,38,0.5)] mt-4">NUKE TODAY'S LEDGER</button>
-                </div>
+            <div class="border border-red-500/30 bg-red-900/10 p-5 rounded-3xl space-y-4">
+                <h3 class="font-black text-red-500 uppercase tracking-widest mb-2">Danger Zone</h3>
+                <button onclick="executeDanger('clear_breaks')" class="w-full bg-red-500/20 text-red-400 py-3 rounded-xl font-bold border border-red-500/30">CLEAR ACTIVE BREAKS</button>
             </div>
         </div>
     </div>
 
     <div id="m-edit" class="fixed inset-0 bg-slate-950/98 backdrop-blur-xl z-[300] hidden flex flex-col justify-end">
-        <div class="glass-panel rounded-t-[2.5rem] p-6 pb-12 w-full border-t border-amber-500/50">
-            <div class="flex justify-between items-center mb-6"><h2 class="text-xl font-black text-amber-500">Edit Execution</h2><button onclick="closeModal('m-edit')" class="text-xl opacity-50 p-2">✕</button></div>
-            <div class="space-y-3">
-                <label class="text-[10px] uppercase font-bold opacity-50">Amount</label>
+        <div class="glass-card rounded-t-[2.5rem] p-6 pb-12 w-full border-t border-amber-500/50">
+            <div class="flex justify-between items-center mb-6"><h2 class="text-xl font-black text-amber-500">Edit Deal</h2><button onclick="closeModal('m-edit')" class="text-xl opacity-50 p-2">✕</button></div>
+            <div class="space-y-4">
                 <input id="e-amt" type="number" class="text-xl font-black text-amber-400">
-                <label class="text-[10px] uppercase font-bold opacity-50 mt-2 block">Client ID</label>
                 <input id="e-cid" type="text" class="font-bold">
                 <div class="grid grid-cols-2 gap-3 mt-4">
                     <button onclick="updateDeal()" class="bg-amber-600 py-4 rounded-xl font-black text-white shadow-lg">UPDATE</button>
@@ -233,41 +198,45 @@
 
     <script>
         const tg = window.Telegram.WebApp; tg.expand();
-        let cache = { deals: [], active_breaks: [], chat: [], config: {daily:25000, weekly:150000, features:{chat:true, chart:true, breaks:true}, force_refresh:0}, announcement: null };
-        let adminPass = ''; let isUIBlocked = false; let tvSeries = null; let tvChart = null; let currentEditId = null;
+        let cache = { deals: [], active_breaks: [], config: {daily:25000, defcon:"green", allocations:{"SpaceX Pre-IPO":500000, "AI Data Centers":150000}, force_refresh:0}, announcement: null };
+        let adminPass = ''; let isUIBlocked = false; let currentEditId = null; let chartInst = null; let myRefresh = 0;
 
-        // Initialization
         window.onload = () => {
             initChart();
-            setInterval(refreshData, 5000); // Fast background poll
-            setInterval(updateClocks, 1000);
+            setInterval(refreshData, 5000); // Polls data in background
             refreshData();
         };
 
-        // --- Core Engine & State Management ---
-        // We do NOT update the DOM if the user is typing in an input or has a modal open to prevent UI jarring.
+        // --- Bulletproof State Management ---
+        // If isUIBlocked is true (modal open) or user is focused on an input, we DO NOT re-render the DOM.
+        // This stops the typing glitches completely.
         async function refreshData() {
             try {
                 const res = await fetch('/api/dashboard'); 
                 const newData = await res.json();
                 
-                // Always check force refresh signal
                 if(newData.config.force_refresh > cache.config.force_refresh) location.reload();
-                
                 cache = newData;
 
-                // Handle Global Banner globally
-                const b = document.getElementById('banner');
-                if(cache.announcement) { b.classList.remove('hidden'); document.getElementById('banner-txt').innerText = `⚠️ ${cache.announcement.message}`; } 
-                else b.classList.add('hidden');
+                applyDefcon(cache.config.defcon);
 
-                // State Check: Only render if user isn't actively engaging a form
-                const activeTag = document.activeElement.tagName.toLowerCase();
+                const activeTag = document.activeElement ? document.activeElement.tagName.toLowerCase() : '';
                 if(isUIBlocked || activeTag === 'input' || activeTag === 'textarea' || activeTag === 'select') return;
 
                 renderViews();
-                updateChartData();
             } catch(e) { document.getElementById('conn-status').classList.replace('bg-emerald-500', 'bg-red-500'); }
+        }
+
+        function applyDefcon(level) {
+            let color = '16, 185, 129'; let hex = '#10b981'; let txt = 'NORMAL';
+            if(level === 'yellow') { color = '245, 158, 11'; hex = '#f59e0b'; txt = 'PUSH'; }
+            if(level === 'red') { color = '239, 68, 68'; hex = '#ef4444'; txt = 'POWER HOUR'; }
+            
+            document.documentElement.style.setProperty('--defcon-rgb', color);
+            document.documentElement.style.setProperty('--defcon', hex);
+            document.getElementById('top-header').style.borderBottomColor = hex;
+            document.getElementById('defcon-status').innerText = `DEFCON: ${txt}`;
+            document.getElementById('defcon-status').style.color = hex;
         }
 
         function renderViews() {
@@ -276,113 +245,92 @@
             const today = new Date().toISOString().split('T')[0];
             const dailyDeals = cache.deals.filter(d => d.created_at.startsWith(today));
             const total = dailyDeals.reduce((s, d) => s + d.amount, 0);
-            const myTotal = dailyDeals.filter(d => d.agent_name === (tg.initDataUnsafe.user?.first_name || "Agent")).reduce((s,d)=>s+d.amount, 0);
 
-            // Floor Tab Render
+            // 1. Floor Render
             document.getElementById('h-total').innerText = `$${total.toLocaleString()}`;
             document.getElementById('h-target').innerText = `Target: $${cache.config.daily.toLocaleString()}`;
-            
             const pct = Math.min((total/cache.config.daily)*100, 100);
             document.getElementById('h-bar').style.width = `${pct}%`;
             document.getElementById('h-pct').innerText = `${Math.floor(pct)}%`;
-            // Simple circular progress approximation
-            if(pct > 0) document.getElementById('h-ring').style.clipPath = `polygon(0 0, 100% 0, 100% ${pct}%, 0 ${pct}%)`;
 
-            let commRate = myTotal > 50000 ? 0.07 : 0.05;
-            document.getElementById('h-comm').innerText = `$${Math.floor(myTotal * commRate).toLocaleString()}`;
-            document.getElementById('w-comm').innerText = `$${Math.floor(myTotal * commRate).toLocaleString()}`;
-            document.getElementById('w-tier').innerText = myTotal > 50000 ? "Tier 2 (7%)" : "Tier 1 (5%)";
+            // Order Book
+            document.getElementById('order-book').innerHTML = dailyDeals.map(d => {
+                const isFtd = d.deal_type === 'FTD';
+                const color = isFtd ? 'text-emerald-400' : 'text-blue-400';
+                return `<div class="book-row">
+                    <span class="truncate">${d.agent_name}</span>
+                    <span class="${color} text-right">$${d.amount}</span>
+                    <span class="text-right opacity-60 truncate">${d.asset_class}</span>
+                </div>`;
+            }).join('') || '<p class="text-[9px] opacity-30 text-center py-4">Book Empty</p>';
 
-            // Floor Feed
-            const icons = {"Equities":"📈", "Crypto":"₿", "Pre-IPO":"🚀", "Forex":"💱", "Standard":"💼"};
-            document.getElementById('feed-list').innerHTML = dailyDeals.map(d => `
-                <div class="glass-panel p-4 rounded-2xl flex justify-between items-center mb-2 ${d.amount>=10000 ? 'border-amber-500/50 shadow-[0_0_15px_rgba(245,158,11,0.2)]' : ''}">
-                    <div class="flex items-center gap-3">
-                        <div class="avatar w-10 h-10 text-sm shadow-lg">${d.amount>=10000?'🐋':d.agent_name.substring(0,2).toUpperCase()}</div>
-                        <div>
-                            <p class="text-sm font-bold">${d.agent_name}</p>
-                            <p class="text-[9px] opacity-60 uppercase font-bold tracking-wider">${icons[d.asset_class]||'💼'} ${d.asset_class} • ${d.client_id}</p>
-                        </div>
-                    </div>
-                    <div class="text-right">
-                        <p class="font-black text-lg ${d.amount>=10000 ? 'text-amber-400' : 'text-blue-400'}">+$${d.amount.toLocaleString()}</p>
-                    </div>
-                </div>`).join('') || '<p class="text-center opacity-30 py-10 text-xs uppercase tracking-widest font-bold">Awaiting Executions</p>';
+            // Allocations (SpaceX & AI)
+            const allocs = cache.config.allocations || {};
+            let allocHtml = '';
+            for (const [asset, cap] of Object.entries(allocs)) {
+                const used = cache.deals.filter(d => d.asset_class === asset).reduce((s,d)=>s+d.amount, 0);
+                const aPct = Math.min((used/cap)*100, 100);
+                allocHtml += `
+                <div class="glass-card p-4 rounded-2xl mb-2">
+                    <div class="flex justify-between items-center mb-2"><span class="text-xs font-bold">${asset}</span><span class="text-[10px] font-mono text-amber-400">$${used.toLocaleString()} / $${cap.toLocaleString()}</span></div>
+                    <div class="bg-black/40 rounded-full h-1.5"><div class="bg-gradient-to-r from-amber-500 to-orange-500 h-full rounded-full transition-all" style="width:${aPct}%"></div></div>
+                </div>`;
+            }
+            document.getElementById('allocations-list').innerHTML = allocHtml;
 
-            // Leaderboard Render
+            // 2. Data Render
+            document.getElementById('s-deals').innerText = dailyDeals.length;
+            const ftds = dailyDeals.filter(d => d.deal_type === 'FTD').length;
+            document.getElementById('s-winrate').innerText = dailyDeals.length ? `${Math.round((ftds/dailyDeals.length)*100)}%` : '0%';
+
             const agents = {}; dailyDeals.forEach(d => agents[d.agent_name] = (agents[d.agent_name] || 0) + d.amount);
             document.getElementById('stats-container').innerHTML = Object.entries(agents).sort((a,b)=>b[1]-a[1]).map(([n, amt], i) => `
-                <div class="glass-panel p-4 rounded-2xl flex justify-between items-center">
+                <div class="glass-card p-4 rounded-2xl flex justify-between items-center">
                     <div class="flex items-center gap-3"><span class="text-lg w-6 text-center">${i===0?'🥇':(i===1?'🥈':'🥉')}</span><span class="text-sm font-bold">${n}</span></div>
-                    <span class="font-black text-sm text-emerald-400">$${amt.toLocaleString()}</span>
+                    <span class="font-black text-sm text-blue-400">$${amt.toLocaleString()}</span>
                 </div>`).join('');
-
-            // Feature Toggles Check
-            document.getElementById('chat-wrapper').style.display = cache.config.features.chat ? 'flex' : 'none';
-            document.getElementById('chart-container-wrap').style.display = cache.config.features.chart ? 'block' : 'none';
-
-            // Chat Render
-            if(cache.config.features.chat) {
-                document.getElementById('chat-box').innerHTML = cache.chat.map(c => `
-                    <div class="glass p-3 rounded-xl w-fit max-w-[85%] ${c.agent_name === (tg.initDataUnsafe.user?.first_name) ? 'ml-auto border-blue-500/30 bg-blue-900/20' : ''}">
-                        <p class="text-[9px] opacity-50 font-bold mb-1 tracking-wider uppercase">${c.agent_name}</p><p class="text-sm">${c.message}</p>
-                    </div>`).reverse().join('');
-                document.getElementById('chat-box').scrollTop = document.getElementById('chat-box').scrollHeight;
-            }
-
-            // Breaks Render
-            const activeSet = new Set([...dailyDeals.map(d=>d.agent_name), ...cache.active_breaks.map(b=>b.agent_name)]);
-            document.getElementById('team-count').innerText = activeSet.size;
-            document.getElementById('b-live').innerHTML = cache.active_breaks.map(b => `
-                <div class="flex justify-between items-center p-4 glass-panel rounded-2xl border border-white/5">
-                    <div><span class="text-sm font-bold block">${b.agent_name}</span><span class="text-[9px] text-orange-400 uppercase font-bold">${b.break_type} Break</span></div>
-                    <div class="flex items-center gap-4"><span class="timer font-mono text-sm font-bold shadow-inner px-2 py-1 rounded bg-black/50" data-start="${new Date(b.start_time).getTime()}"></span>
-                    <button onclick="endBreak('${b.user_id}')" class="text-[10px] bg-red-600 px-4 py-2 rounded-xl font-bold active:scale-95 transition">STOP</button></div>
-                </div>`).join('') || '<p class="text-[10px] opacity-50 text-center uppercase tracking-widest font-bold py-4">Floor is fully manned</p>';
-        }
-
-        // --- TradingView Chart Engine ---
-        function initChart() {
-            const container = document.getElementById('tv-chart');
-            tvChart = LightweightCharts.createChart(container, {
-                width: container.clientWidth, height: container.clientHeight,
-                layout: { background: { type: 'solid', color: 'transparent' }, textColor: 'rgba(255, 255, 255, 0.5)', },
-                grid: { vertLines: { color: 'rgba(255, 255, 255, 0.05)' }, horzLines: { color: 'rgba(255, 255, 255, 0.05)' } },
-                timeScale: { timeVisible: true, secondsVisible: false, borderVisible: false },
-                rightPriceScale: { borderVisible: false }
-            });
-            tvSeries = tvChart.addCandlestickSeries({ upColor: '#10b981', downColor: '#ef4444', borderVisible: false, wickUpColor: '#10b981', wickDownColor: '#ef4444' });
             
-            // Generate some dummy historical data for the visual
-            let basePrice = 92000; const data = []; const now = Math.floor(Date.now() / 1000);
-            for(let i=100; i>0; i--) {
-                const open = basePrice + (Math.random()-0.5)*100; const close = open + (Math.random()-0.5)*200;
-                const high = Math.max(open, close) + Math.random()*50; const low = Math.min(open, close) - Math.random()*50;
-                data.push({ time: now - (i*60), open, high, low, close });
-                basePrice = close;
-            }
-            tvSeries.setData(data);
+            updateChartData(dailyDeals);
+
+            // 3. Shifts Render
+            const activeSet = new Set([...dailyDeals.map(d=>d.agent_name), ...cache.active_breaks.map(b=>b.agent_name)]);
+            document.getElementById('team-count').innerText = `${activeSet.size} Online`;
+            document.getElementById('b-live').innerHTML = cache.active_breaks.map(b => `
+                <div class="flex justify-between items-center p-3 glass-card rounded-2xl border border-white/5">
+                    <div><span class="text-sm font-bold block">${b.agent_name}</span><span class="text-[9px] text-orange-400 uppercase font-bold">${b.break_type}</span></div>
+                    <div class="flex items-center gap-3"><span class="timer font-mono text-sm font-bold" data-start="${new Date(b.start_time).getTime()}"></span>
+                    <button onclick="endBreak('${b.user_id}')" class="text-[10px] bg-red-600 px-3 py-1.5 rounded-lg font-bold">STOP</button></div>
+                </div>`).join('') || '<p class="text-[10px] opacity-50 text-center uppercase tracking-widest font-bold py-4">No active breaks</p>';
         }
 
-        function updateChartData() {
-            if(!tvSeries || !cache.config.features.chart) return;
-            // Simulate live ticking
-            const last = tvSeries.data()[tvSeries.data().length-1];
-            if(!last) return;
-            const newClose = last.close + (Math.random()-0.5)*50;
-            tvSeries.update({
-                time: Math.floor(Date.now() / 1000), open: last.close,
-                high: Math.max(last.close, newClose) + 10, low: Math.min(last.close, newClose) - 10, close: newClose
+        function initChart() {
+            const ctx = document.getElementById('assetChart'); if(!ctx) return;
+            chartInst = new Chart(ctx, {
+                type: 'doughnut',
+                data: { labels: ['Equities', 'Crypto', 'Pre-IPO', 'Forex'], datasets: [{ data: [1,1,1,1], backgroundColor: ['#3b82f6', '#10b981', '#f59e0b', '#8b5cf6'], borderWidth: 0, cutout: '75%' }] },
+                options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'right', labels: {color: 'rgba(255,255,255,0.6)', font:{size:9}} } } }
             });
         }
 
-        // --- Core Actions ---
-        function addAmt(v) { const el = document.getElementById('f-amt'); el.value = (parseFloat(el.value) || 0) + v; tg.HapticFeedback.impactOccurred('light'); }
-        
-        async function submitDeal() {
+        function updateChartData(dailyDeals) {
+            if(!chartInst) return;
+            let eq=0, cr=0, pr=0, fx=0;
+            dailyDeals.forEach(d => {
+                if(d.asset_class === 'Equities') eq+=d.amount;
+                else if(d.asset_class === 'Crypto') cr+=d.amount;
+                else if(d.asset_class === 'SpaceX Pre-IPO' || d.asset_class === 'AI Data Centers') pr+=d.amount;
+                else fx+=d.amount;
+            });
+            if(eq===0 && cr===0 && pr===0 && fx===0) { eq=1; cr=1; pr=1; fx=1; } // default visual
+            chartInst.data.datasets[0].data = [eq, cr, pr, fx];
+            chartInst.update();
+        }
+
+        // --- Core Deal Actions ---
+        async function submitDeal(forceAgent = null) {
             const amt = parseFloat(document.getElementById('f-amt').value); if(!amt) return;
             const body = {
-                agent_name: tg.initDataUnsafe.user?.first_name || "Agent", amount: amt, client_id: document.getElementById('f-cid').value,
+                agent_name: forceAgent || tg.initDataUnsafe.user?.first_name || "Agent", amount: amt, client_id: document.getElementById('f-cid').value,
                 deal_type: document.getElementById('f-type').value, asset_class: document.getElementById('f-class').value, payment_method: document.getElementById('f-method').value
             };
             document.getElementById('btn-submit').innerText = "EXECUTING...";
@@ -393,41 +341,27 @@
             closeModal('m-deal'); refreshData();
         }
 
-        async function submitChat() {
-            const msg = document.getElementById('chat-input').value; if(!msg) return;
-            await fetch('/api/chat', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({agent_name: tg.initDataUnsafe.user?.first_name || "Agent", message: msg})});
-            document.getElementById('chat-input').value = ''; refreshData();
-        }
-
         async function takeBreak(type) { await fetch('/api/break', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({user_id: tg.initDataUnsafe.user?.id || Date.now(), agent_name: tg.initDataUnsafe.user?.first_name || "Agent", break_type: type })}); refreshData(); }
         async function endBreak(uid) { await fetch('/api/break/end', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({user_id: uid})}); refreshData(); }
 
         // --- God Mode Admin ---
         function openAdmin() { 
-            if(!adminPass) adminPass = prompt("Enter God Mode Passcode:"); 
+            if(!adminPass) adminPass = prompt("God Mode Passcode:"); 
             if(adminPass === "13012") {
-                document.getElementById('a-t-daily').value = cache.config.daily; document.getElementById('a-t-weekly').value = cache.config.weekly;
-                document.getElementById('a-t-chat').checked = cache.config.features.chat; document.getElementById('a-t-chart').checked = cache.config.features.chart;
-                switchAdminTab('a-ops'); openModal('m-admin');
-            } else { alert("Access Denied"); adminPass=''; }
+                document.getElementById('a-t-daily').value = cache.config.daily; 
+                openModal('m-admin'); renderAdminLedger();
+            } else { alert("Denied"); adminPass=''; }
         }
 
-        function switchAdminTab(tab) {
-            document.querySelectorAll('.admin-view').forEach(e => e.classList.add('hidden'));
-            document.querySelectorAll('[id^="tab-a-"]').forEach(e => { e.classList.remove('bg-white/10'); e.classList.add('opacity-50'); });
-            document.getElementById(`view-${tab}`).classList.remove('hidden');
-            document.getElementById(`tab-${tab}`).classList.remove('opacity-50');
-            document.getElementById(`tab-${tab}`).classList.add('bg-white/10');
-            if(tab === 'a-ledger') renderAdminLedger();
-        }
+        function setDefcon(level) { cache.config.defcon = level; saveAdmin(); }
 
         function renderAdminLedger() {
             const q = document.getElementById('a-search').value.toLowerCase();
-            const list = q ? cache.deals.filter(d => d.client_id.toLowerCase().includes(q) || d.agent_name.toLowerCase().includes(q)) : cache.deals;
+            const list = q ? cache.deals.filter(d => d.client_id.toLowerCase().includes(q) || d.agent_name.toLowerCase().includes(q)) : cache.deals.slice(0, 50); // Show last 50
             document.getElementById('a-ledger-list').innerHTML = list.map(d => `
-                <div onclick="openEdit(${d.id})" class="glass-panel p-4 rounded-xl flex justify-between items-center text-xs active:scale-95 transition cursor-pointer">
-                    <div><span class="font-bold text-sm">${d.agent_name}</span><br><span class="opacity-60 font-mono">${d.created_at.split('T')[0]} | ${d.client_id}</span></div>
-                    <span class="font-black text-amber-500 text-lg">$${d.amount}</span>
+                <div onclick="openEdit(${d.id})" class="bg-black/50 p-3 rounded-xl flex justify-between items-center text-xs active:bg-white/10">
+                    <div><span class="font-bold text-sm">${d.agent_name}</span><br><span class="opacity-60">${d.client_id}</span></div>
+                    <span class="font-black text-amber-500">$${d.amount}</span>
                 </div>`).join('');
         }
 
@@ -440,27 +374,34 @@
         async function updateDeal() {
             const d = cache.deals.find(x => x.id === currentEditId); d.amount = parseFloat(document.getElementById('e-amt').value); d.client_id = document.getElementById('e-cid').value;
             await fetch(`/api/admin/deal/${currentEditId}?password=13012`, {method:'PUT', headers:{'Content-Type':'application/json'}, body:JSON.stringify(d)});
-            closeModal('m-edit'); refreshData(); switchAdminTab('a-ledger');
+            closeModal('m-edit'); refreshData(); renderAdminLedger();
         }
         
         async function deleteDeal() {
-            if(confirm("Void this deal?")) { await fetch(`/api/admin/deal/${currentEditId}?password=13012`, {method:'DELETE'}); closeModal('m-edit'); refreshData(); switchAdminTab('a-ledger'); }
+            if(confirm("Void deal?")) { await fetch(`/api/admin/deal/${currentEditId}?password=13012`, {method:'DELETE'}); closeModal('m-edit'); refreshData(); renderAdminLedger(); }
         }
 
         async function saveAdmin() {
-            const cfg = { daily: parseInt(document.getElementById('a-t-daily').value), weekly: parseInt(document.getElementById('a-t-weekly').value), features: { chat: document.getElementById('a-t-chat').checked, chart: document.getElementById('a-t-chart').checked, breaks: true }, force_refresh: cache.config.force_refresh };
-            await fetch('/api/admin/config', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({password: adminPass, config: cfg})}); alert("Saved"); refreshData();
+            cache.config.daily = parseInt(document.getElementById('a-t-daily').value);
+            await fetch('/api/admin/config', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({password: adminPass, config: cache.config})}); 
+            refreshData();
         }
 
-        // --- Utils & UI ---
-        function openModal(id) { isUIBlocked = true; document.getElementById(id).classList.remove('hidden'); if(id==='m-deal'){document.getElementById('btn-submit').innerText="CONFIRM EXECUTION"; document.querySelectorAll('#m-deal input').forEach(i=>i.value='');} tg.HapticFeedback.impactOccurred('light'); }
+        function ghostDeal() { const agent = prompt("Enter exact Agent Name:"); if(agent) { document.getElementById('m-admin').classList.add('hidden'); openModal('m-deal'); document.getElementById('m-deal').dataset.ghost = agent; } }
+        async function executeDanger(act) { if(confirm("Are you sure?")) { await fetch(`/api/admin/danger/${act}`, {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({password: adminPass})}); alert("Executed"); refreshData(); } }
+
+        // --- UI Utils ---
+        function copyToClip(txt) { navigator.clipboard.writeText(txt); tg.showAlert("Copied to clipboard!"); }
+        function openModal(id) { isUIBlocked = true; document.getElementById(id).classList.remove('hidden'); if(id==='m-deal'){document.getElementById('btn-submit').innerText="CONFIRM EXECUTION"; document.querySelectorAll('#m-deal input').forEach(i=>i.value=''); document.getElementById('m-deal').dataset.ghost='';} tg.HapticFeedback.impactOccurred('light'); }
         function closeModal(id) { document.getElementById(id).classList.add('hidden'); isUIBlocked = false; }
         function nav(p) { document.querySelectorAll('.page').forEach(el => el.classList.remove('active')); document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active')); document.getElementById(`tab-${p}`).classList.add('active'); document.getElementById(`n-${p}`).classList.add('active'); tg.HapticFeedback.impactOccurred('light'); }
         
-        function updateClocks() {
-            document.getElementById('server-time').innerText = new Date().toLocaleTimeString('en-US', {hour12:false});
+        // Timer for breaks
+        setInterval(() => {
             document.querySelectorAll('.timer').forEach(el => { const e = (Date.now() - parseInt(el.dataset.start)) / 60000; el.innerText = `${Math.floor(e).toString().padStart(2,'0')}:${Math.floor((e%1)*60).toString().padStart(2,'0')}`; });
-        }
+        }, 1000);
+
+        const originalSubmit = submitDeal; submitDeal = async function() { const ghost = document.getElementById('m-deal').dataset.ghost; await originalSubmit(ghost || null); }
     </script>
 </body>
 </html>
