@@ -20,6 +20,7 @@ class DealModel(BaseModel):
     deal_type: str
     payment_method: str
     notes: str = ""
+    tag: str = "Standard"
 
 @app.get("/", response_class=HTMLResponse)
 async def home():
@@ -28,7 +29,6 @@ async def home():
 
 @app.get("/api/dashboard")
 async def get_dashboard():
-    # Fetch data for the last 30 days
     thirty_days_ago = (datetime.now(timezone.utc) - timedelta(days=30)).isoformat()
     
     deals = supabase.table("deals").select("*").gte("created_at", thirty_days_ago).order('created_at', desc=True).execute().data
@@ -37,7 +37,7 @@ async def get_dashboard():
     playbook = supabase.table("playbook").select("*").execute().data
     
     targets_data = supabase.table("settings").select("value").eq("key", "system_targets").execute().data
-    targets = targets_data[0]['value'] if targets_data else {"daily": 10000, "weekly": 50000, "monthly": 200000}
+    targets = targets_data[0]['value'] if targets_data else {"daily": 10000, "weekly": 50000, "monthly": 200000, "badges": {}}
     announcement = supabase.table("announcements").select("*").order('created_at', desc=True).limit(1).execute().data
     
     return {
@@ -50,6 +50,12 @@ async def get_dashboard():
 async def add_deal(deal: DealModel):
     supabase.table("deals").insert(deal.model_dump()).execute()
     return {"status": "success"}
+
+@app.put("/api/admin/deal/{id}")
+async def update_deal(id: int, update: DealModel, password: str):
+    if password != "13012": raise HTTPException(status_code=403)
+    supabase.table("deals").update(update.model_dump()).eq("id", id).execute()
+    return {"status": "ok"}
 
 @app.delete("/api/admin/deal/{id}")
 async def delete_deal(id: int, password: str):
@@ -70,9 +76,11 @@ async def end_break(data: dict):
         b = active[0]
         start_time = datetime.fromisoformat(b["start_time"].replace("Z", "+00:00"))
         duration_minutes = int((datetime.now(timezone.utc) - start_time).total_seconds() / 60)
+        # Apply restitution adjustment if any
+        adj = data.get("adjustment", 0)
         supabase.table("break_logs").insert({
             "user_id": str(b["user_id"]), "agent_name": b["agent_name"], 
-            "duration": duration_minutes, "break_type": b.get("break_type", "small")
+            "duration": max(0, duration_minutes - adj), "break_type": b.get("break_type", "small")
         }).execute()
     supabase.table("active_breaks").delete().eq("user_id", data["user_id"]).execute()
     return {"status": "success"}
@@ -104,6 +112,9 @@ async def danger_zone(action: str, data: dict):
     elif action == "wipe_today_logs":
         today = datetime.now(timezone.utc).strftime('%Y-%m-%d')
         supabase.table("break_logs").delete().gte("created_at", today).execute()
+    elif action == "wipe_today_deals":
+        today = datetime.now(timezone.utc).strftime('%Y-%m-%d')
+        supabase.table("deals").delete().gte("created_at", today).execute()
     return {"status": "ok"}
 
 if __name__ == "__main__":
