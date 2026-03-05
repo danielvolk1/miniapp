@@ -10,18 +10,25 @@
         :root { --bg: #0f172a; --panel: #1e293b; --text: #f8fafc; --accent: #3b82f6; }
         .theme-green { --bg: #022c22; --panel: #064e3b; --text: #ecfdf5; --accent: #10b981; }
         .theme-amoled { --bg: #000000; --panel: #0a0a0a; --text: #ffffff; --accent: #3b82f6; border-color: #333 !important; }
-        
         body { background: var(--bg); color: var(--text); overflow-y: auto; -webkit-overflow-scrolling: touch; transition: all 0.3s; }
         .panel { background: var(--panel); border: 1px solid rgba(255,255,255,0.05); }
         .page { display: none; padding: 16px; padding-bottom: 120px; min-height: 100vh; }
-        .page.active { display: block; }
-        
+        .page.active { display: block; animation: fadeIn 0.3s ease; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
         input, select, textarea { pointer-events: auto !important; user-select: text !important; background: rgba(0,0,0,0.2) !important; color: var(--text) !important; border: 1px solid rgba(255,255,255,0.1) !important; }
         .nav-item.active { color: var(--accent); }
         .avatar { display: flex; align-items: center; justify-content: center; border-radius: 50%; background: var(--accent); color: white; font-weight: black; }
+        .marquee { white-space: nowrap; overflow: hidden; box-sizing: border-box; }
+        .marquee span { display: inline-block; padding-left: 100%; animation: marquee 15s linear infinite; }
+        @keyframes marquee { 0% { transform: translate(0, 0); } 100% { transform: translate(-100%, 0); } }
+        .tab-btn.active { background: var(--accent); color: white; }
     </style>
 </head>
 <body class="font-sans">
+
+    <div id="broadcast-banner" class="hidden bg-amber-500 text-black text-[10px] font-black uppercase tracking-widest marquee py-1">
+        <span id="broadcast-text"></span>
+    </div>
 
     <header class="flex justify-between items-center px-4 py-3 panel sticky top-0 z-50 backdrop-blur-md">
         <div class="flex flex-col">
@@ -32,38 +39,61 @@
             <span id="live-clock" class="text-[9px] opacity-70 font-mono">00:00:00</span>
         </div>
         <div class="flex items-center gap-2">
-            <button onclick="toggleAudio()" id="btn-audio" class="p-2 rounded-lg text-xs panel">🔊</button>
             <button onclick="toggleTheme()" class="p-2 rounded-lg text-xs panel">🎨</button>
-            <button onclick="openAdmin()" class="bg-red-500/10 text-red-500 px-3 py-1.5 rounded-lg text-[10px] font-bold border border-red-500/20">ADMIN</button>
+            <button onclick="openAdmin()" class="bg-red-500/10 text-red-500 px-3 py-1.5 rounded-lg text-[10px] font-bold border border-red-500/20">GOD MODE</button>
         </div>
     </header>
 
     <main id="page-home" class="page active">
         <div class="p-6 rounded-3xl shadow-xl mb-4 text-white relative overflow-hidden" style="background: var(--accent)">
-            <p class="text-[10px] font-bold opacity-80 uppercase tracking-widest">Shift Total</p>
+            <p class="text-[10px] font-bold opacity-80 uppercase tracking-widest">Today's Revenue</p>
             <h2 id="h-total" class="text-4xl font-black mb-2">$0</h2>
             <div class="bg-black/20 rounded-full h-1.5"><div id="h-bar" class="bg-white h-full rounded-full transition-all duration-700 w-0"></div></div>
+            <p id="h-target-text" class="text-[9px] font-bold opacity-70 mt-2 text-right">Target: $0</p>
         </div>
         <div class="flex gap-2 mb-4 relative">
             <input type="text" id="deal-search" oninput="saveSearch()" placeholder="🔍 Search ID/Email..." class="flex-1 p-3 rounded-xl text-sm outline-none">
-            <button onclick="clearSearch()" class="absolute right-3 top-3 opacity-50 font-bold">✕</button>
         </div>
+        <h3 class="text-xs font-bold opacity-50 uppercase mb-3 ml-2">Recent Transactions</h3>
         <div id="h-deals" class="space-y-3"></div>
     </main>
 
     <main id="page-stats" class="page">
+        <div class="flex panel rounded-xl p-1 mb-4">
+            <button onclick="setStatsPeriod('daily')" id="tab-daily" class="tab-btn active flex-1 py-2 rounded-lg text-xs font-bold transition-all">DAILY</button>
+            <button onclick="setStatsPeriod('weekly')" id="tab-weekly" class="tab-btn flex-1 py-2 rounded-lg text-xs font-bold transition-all">WEEKLY</button>
+            <button onclick="setStatsPeriod('monthly')" id="tab-monthly" class="tab-btn flex-1 py-2 rounded-lg text-xs font-bold transition-all">MONTHLY</button>
+        </div>
+
         <div class="grid grid-cols-2 gap-3 mb-3">
-            <div class="panel p-5 rounded-2xl">
-                <p class="text-[10px] opacity-50 font-bold uppercase">Avg Deal</p>
-                <p id="s-avg" class="text-xl font-black" style="color: var(--accent)">$0</p>
+            <div class="panel p-5 rounded-2xl border border-white/5">
+                <p class="text-[10px] opacity-50 font-bold uppercase">Period Total</p>
+                <p id="s-total" class="text-2xl font-black" style="color: var(--accent)">$0</p>
             </div>
-            <div class="panel p-5 rounded-2xl">
-                <p class="text-[10px] opacity-50 font-bold uppercase">Total Deals</p>
-                <p id="s-count" class="text-xl font-black text-emerald-400">0</p>
+            <div class="panel p-5 rounded-2xl border border-white/5">
+                <p class="text-[10px] opacity-50 font-bold uppercase">Target Progress</p>
+                <p id="s-target-pct" class="text-2xl font-black text-emerald-400">0%</p>
             </div>
         </div>
-        <h3 class="text-xs font-bold opacity-50 uppercase mb-3 ml-2">Leaderboard</h3>
+        
+        <div class="panel p-4 rounded-2xl mb-6">
+            <div class="flex justify-between text-[10px] font-bold opacity-70 mb-1"><span id="ftd-count">FTD: 0</span><span id="dep-count">DEP: 0</span></div>
+            <div class="w-full bg-slate-700 h-2 rounded-full flex overflow-hidden mb-3">
+                <div id="ftd-bar" class="bg-blue-500 h-full"></div><div id="dep-bar" class="bg-emerald-500 h-full"></div>
+            </div>
+        </div>
+
+        <h3 class="text-xs font-bold opacity-50 uppercase mb-3 ml-2">Top Performers</h3>
         <div id="stats-container" class="space-y-2"></div>
+    </main>
+
+    <main id="page-team" class="page">
+        <div class="panel p-5 rounded-3xl mb-4 text-center">
+            <h2 class="text-2xl font-black text-emerald-400" id="team-active-count">0</h2>
+            <p class="text-[10px] font-bold opacity-50 uppercase tracking-widest">Agents Active Today</p>
+        </div>
+        <h3 class="text-xs font-bold opacity-50 uppercase mb-3 ml-2">Live Roster</h3>
+        <div id="team-roster" class="space-y-3"></div>
     </main>
 
     <main id="page-breaks" class="page">
@@ -75,212 +105,272 @@
                 <span>☕ Small Break</span><span class="text-[9px] opacity-50 font-normal">Pool (45m max)</span>
             </button>
         </div>
-        
         <div class="panel rounded-3xl p-5 mb-4">
-            <h3 class="text-xs font-bold opacity-50 uppercase mb-4">Active Timers</h3>
+            <h3 class="text-xs font-bold opacity-50 uppercase mb-4">Live Timers</h3>
             <div id="b-live" class="space-y-3"></div>
         </div>
-
         <div class="panel rounded-3xl p-5">
-            <h3 class="text-xs font-bold opacity-50 uppercase mb-4">Remaining Break Quotas</h3>
+            <h3 class="text-xs font-bold opacity-50 uppercase mb-4">Remaining Quotas (Today)</h3>
             <div class="overflow-hidden rounded-xl border border-white/5">
                 <table class="w-full text-left text-xs">
-                    <thead class="bg-black/20 text-[9px] uppercase opacity-60"><tr><th class="p-3">Agent</th><th class="p-3">Big Left</th><th class="p-3">Small Left</th></tr></thead>
+                    <thead class="bg-black/20 text-[9px] uppercase opacity-60"><tr><th class="p-3">Agent</th><th class="p-3">Big</th><th class="p-3">Small</th></tr></thead>
                     <tbody id="b-quota" class="divide-y divide-white/5"></tbody>
                 </table>
             </div>
         </div>
     </main>
 
-    <nav class="fixed bottom-0 w-full panel flex justify-around py-3 pb-8 z-50">
+    <nav class="fixed bottom-0 w-full panel flex justify-around py-3 pb-8 z-50 border-t border-white/5 shadow-2xl">
         <button onclick="nav('home')" id="n-home" class="nav-item active flex flex-col items-center gap-1"><span class="text-xl">🏠</span><span class="text-[9px] font-bold">HOME</span></button>
-        <button onclick="nav('stats')" id="n-stats" class="nav-item flex flex-col items-center gap-1"><span class="text-xl">📊</span><span class="text-[9px] font-bold">STATS</span></button>
+        <button onclick="nav('stats')" id="n-stats" class="nav-item flex flex-col items-center gap-1"><span class="text-xl">📈</span><span class="text-[9px] font-bold">ANALYTICS</span></button>
+        <button onclick="nav('team')" id="n-team" class="nav-item flex flex-col items-center gap-1"><span class="text-xl">👥</span><span class="text-[9px] font-bold">TEAM</span></button>
         <button onclick="nav('breaks')" id="n-breaks" class="nav-item flex flex-col items-center gap-1"><span class="text-xl">⏳</span><span class="text-[9px] font-bold">BREAKS</span></button>
     </nav>
 
-    <button onclick="openDealModal()" class="fixed bottom-24 right-5 w-14 h-14 rounded-full shadow-xl text-3xl font-black flex items-center justify-center z-40 text-white" style="background: var(--accent)">+</button>
+    <button onclick="openDealModal()" class="fixed bottom-24 right-5 w-14 h-14 rounded-full shadow-[0_0_20px_rgba(59,130,246,0.5)] text-3xl font-black flex items-center justify-center z-40 text-white transition-transform active:scale-90" style="background: var(--accent)">+</button>
 
-    <div id="m-deal" class="fixed inset-0 bg-black/90 z-[100] hidden p-5 overflow-y-auto backdrop-blur-sm">
-        <div class="panel p-6 rounded-[2rem] mt-10">
-            <div class="flex justify-between items-center mb-6"><h2 id="m-deal-title" class="text-xl font-black">Transaction</h2><button onclick="closeModal('m-deal')" class="text-xl">✕</button></div>
+    <div id="m-deal" class="fixed inset-0 bg-black/95 z-[100] hidden p-5 overflow-y-auto backdrop-blur-md">
+        <div class="panel p-6 rounded-[2rem] mt-10 border border-white/10 shadow-2xl">
+            <div class="flex justify-between items-center mb-6"><h2 id="m-deal-title" class="text-xl font-black">Transaction</h2><button onclick="closeModal('m-deal')" class="text-xl opacity-50">✕</button></div>
             <div class="space-y-4">
                 <input id="f-cid" type="text" placeholder="Client ID" class="w-full p-4 rounded-xl">
                 <input id="f-email" type="email" placeholder="Client Email" class="w-full p-4 rounded-xl">
-                
                 <div class="relative">
-                    <input id="f-amt" type="number" placeholder="Amount ($)" class="w-full p-4 rounded-xl text-lg font-black">
-                    <div class="flex gap-2 mt-2">
-                        <button onclick="addAmt(50)" class="bg-white/10 px-3 py-1 rounded-full text-[10px] font-bold">+50</button>
-                        <button onclick="addAmt(100)" class="bg-white/10 px-3 py-1 rounded-full text-[10px] font-bold">+100</button>
-                        <button onclick="addAmt(250)" class="bg-white/10 px-3 py-1 rounded-full text-[10px] font-bold">+250</button>
-                        <button onclick="addAmt(500)" class="bg-white/10 px-3 py-1 rounded-full text-[10px] font-bold">+500</button>
+                    <input id="f-amt" type="number" placeholder="Amount ($)" class="w-full p-4 rounded-xl text-xl font-black text-center" style="color: var(--accent)">
+                    <div class="flex gap-2 mt-2 justify-center">
+                        <button onclick="addAmt(100)" class="bg-white/10 px-4 py-2 rounded-xl text-xs font-bold">+100</button>
+                        <button onclick="addAmt(500)" class="bg-white/10 px-4 py-2 rounded-xl text-xs font-bold">+500</button>
+                        <button onclick="addAmt(1000)" class="bg-white/10 px-4 py-2 rounded-xl text-xs font-bold">+1k</button>
                     </div>
                 </div>
-
                 <div class="flex gap-2">
                     <select id="f-type" class="flex-1 p-4 rounded-xl"><option>FTD</option><option>Deposit</option></select>
                     <select id="f-method" class="flex-1 p-4 rounded-xl"><option>Crypto</option><option>Wire</option><option>Stripe</option></select>
                 </div>
                 <textarea id="f-notes" placeholder="Notes/TxID (Optional)" class="w-full p-4 rounded-xl h-20 text-sm"></textarea>
-                
-                <button id="deal-submit-btn" onclick="submitDeal()" class="w-full py-4 rounded-xl font-black text-white shadow-lg" style="background: var(--accent)">CONFIRM</button>
-                <div class="grid grid-cols-2 gap-2 hidden" id="deal-edit-actions">
-                    <button onclick="duplicateDeal()" class="bg-blue-900/40 text-blue-400 py-3 rounded-xl font-bold text-xs border border-blue-500/20">📄 DUPLICATE</button>
-                    <button onclick="deleteDeal()" class="bg-red-900/40 text-red-500 py-3 rounded-xl font-bold text-xs border border-red-500/20">🗑 DELETE</button>
+                <button id="deal-submit-btn" onclick="submitDeal()" class="w-full py-4 rounded-xl font-black text-white shadow-lg text-lg" style="background: var(--accent)">CONFIRM</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="m-admin" class="fixed inset-0 bg-black/95 z-[200] hidden overflow-y-auto backdrop-blur-md pb-20">
+        <div class="sticky top-0 p-5 bg-black/80 backdrop-blur-lg flex justify-between items-center border-b border-white/5 z-10">
+            <h2 class="text-xl font-black text-red-500 flex items-center gap-2">🛡️ GOD MODE</h2>
+            <button onclick="closeModal('m-admin')" class="bg-white/10 px-3 py-1 rounded-lg text-xs font-bold">EXIT</button>
+        </div>
+        
+        <div class="p-5 space-y-8">
+            <div class="panel p-5 rounded-2xl border border-white/5">
+                <h3 class="text-xs font-bold opacity-50 uppercase mb-3">Global Broadcast</h3>
+                <div class="flex gap-2">
+                    <input id="a-broadcast" type="text" placeholder="Message to all agents..." class="flex-1 p-3 rounded-xl text-sm">
+                    <button onclick="sendBroadcast()" class="bg-amber-600 px-4 rounded-xl font-bold text-white text-xs shadow-lg">SEND</button>
+                </div>
+            </div>
+
+            <div class="panel p-5 rounded-2xl border border-white/5">
+                <h3 class="text-xs font-bold opacity-50 uppercase mb-3">System Targets ($)</h3>
+                <div class="space-y-3 text-sm">
+                    <div class="flex justify-between items-center"><label>Daily</label><input id="a-t-daily" type="number" class="w-32 p-2 rounded-lg text-right"></div>
+                    <div class="flex justify-between items-center"><label>Weekly</label><input id="a-t-weekly" type="number" class="w-32 p-2 rounded-lg text-right"></div>
+                    <div class="flex justify-between items-center"><label>Monthly</label><input id="a-t-monthly" type="number" class="w-32 p-2 rounded-lg text-right"></div>
+                    <button onclick="saveTargets()" class="w-full py-3 mt-2 rounded-xl font-bold text-white bg-blue-600">UPDATE TARGETS</button>
+                </div>
+            </div>
+
+            <button onclick="openLedger()" class="w-full panel py-5 rounded-2xl font-black text-white border border-white/10 flex justify-between px-5 items-center">
+                <span class="flex items-center gap-3"><span class="text-2xl">📂</span> Master Ledger Explorer</span><span>→</span>
+            </button>
+
+            <div class="panel p-5 rounded-2xl border border-red-500/20 bg-red-900/10">
+                <h3 class="text-xs font-black text-red-500 uppercase mb-4">Danger Zone</h3>
+                <div class="space-y-3">
+                    <button onclick="executeDanger('clear_breaks')" class="w-full bg-red-500/20 text-red-500 py-3 rounded-xl font-bold text-xs border border-red-500/30">STOP ALL ACTIVE TIMERS</button>
+                    <button onclick="executeDanger('wipe_today_logs')" class="w-full bg-red-500/20 text-red-500 py-3 rounded-xl font-bold text-xs border border-red-500/30">RESET TODAY'S BREAK QUOTAS</button>
                 </div>
             </div>
         </div>
     </div>
 
-    <div id="m-admin" class="fixed inset-0 bg-black/90 z-[200] hidden p-5 overflow-y-auto backdrop-blur-sm">
-        <div class="panel p-6 rounded-[2rem] mt-10 space-y-6">
-            <div class="flex justify-between items-center"><h2 class="text-xl font-black text-red-500">Admin</h2><button onclick="closeModal('m-admin')" class="text-xl">✕</button></div>
-            
-            <button onclick="generateReport()" class="w-full bg-blue-600 py-4 rounded-xl font-black text-white shadow-lg">📋 GENERATE SHIFT REPORT</button>
-
-            <div class="space-y-3">
-                <p class="text-[10px] font-bold opacity-50 uppercase flex justify-between"><span>Shift Goal</span> <span id="goal-val">$10,000</span></p>
-                <input id="a-goal" type="range" min="1000" max="100000" step="1000" oninput="updateGoalText(this.value)" class="w-full">
-                <button onclick="saveAdminConfig()" class="w-full py-3 rounded-xl font-bold text-white" style="background: var(--accent)">SAVE CONFIG</button>
-            </div>
-            <div class="space-y-3">
-                <button onclick="exportCSV('deals')" class="w-full bg-emerald-600 py-3 rounded-xl font-bold text-[10px] text-white">📥 DOWNLOAD RAW DEAL DATA</button>
-                <button onclick="resetBreaks()" class="w-full bg-red-900/40 text-red-500 border border-red-500/20 py-3 rounded-xl font-bold">CLEAR ALL TIMERS</button>
-            </div>
-        </div>
+    <div id="m-ledger" class="fixed inset-0 bg-black/95 z-[300] hidden flex-col">
+        <header class="flex justify-between items-center px-4 py-4 panel border-b border-white/5">
+            <h2 class="font-black text-lg">Master Ledger</h2>
+            <button onclick="closeModal('m-ledger')" class="bg-slate-800 px-3 py-1 rounded text-xs font-bold">CLOSE</button>
+        </header>
+        <div class="flex-1 overflow-y-auto p-4 space-y-2" id="ledger-list"></div>
     </div>
-
-    <audio id="chime" src="https://assets.mixkit.co/active_storage/sfx/2013/2013-preview.mp3" preload="auto"></audio>
 
     <script>
         const tg = window.Telegram.WebApp;
         tg.expand();
-        let cache = { deals: [], active_breaks: [], break_logs: [], config: { goal: 10000 } };
+        let cache = { deals: [], active_breaks: [], break_logs: [], targets: {daily:10000, weekly:50000, monthly:200000}, announcement: null };
         let adminPass = '';
-        let currentEditId = null;
+        let currentPeriod = 'daily';
         let savedSearch = '';
-        const themes = ['dark', 'theme-green', 'theme-amoled'];
-        let themeIndex = 0;
-        let audioMuted = false;
+        let themeIndex = 0; const themes = ['dark', 'theme-green', 'theme-amoled'];
 
-        window.addEventListener('online', () => document.getElementById('conn-status').className = 'w-2 h-2 rounded-full bg-emerald-500 animate-pulse');
-        window.addEventListener('offline', () => document.getElementById('conn-status').className = 'w-2 h-2 rounded-full bg-red-500');
+        function getInitials(n) { return n.substring(0,2).toUpperCase(); }
+        function addAmt(v) { const el = document.getElementById('f-amt'); el.value = (parseFloat(el.value) || 0) + v; }
+
+        function getFilteredDeals(period) {
+            const now = new Date();
+            return cache.deals.filter(d => {
+                const dealDate = new Date(d.created_at);
+                if(period === 'daily') return dealDate.toDateString() === now.toDateString();
+                if(period === 'weekly') { const diff = now - dealDate; return diff <= 7 * 24 * 60 * 60 * 1000; }
+                if(period === 'monthly') { const diff = now - dealDate; return diff <= 30 * 24 * 60 * 60 * 1000; }
+                return true;
+            });
+        }
 
         async function refresh() {
             try {
                 const res = await fetch('/api/dashboard');
                 cache = await res.json();
-                renderHome(); renderStats(); renderBreaks();
-            } catch(e) { console.log("Offline or error"); }
+                
+                // Handle Broadcast
+                if(cache.announcement) {
+                    document.getElementById('broadcast-banner').classList.remove('hidden');
+                    document.getElementById('broadcast-text').innerText = `⚠️ ${cache.announcement.message}`;
+                }
+
+                renderHome(); renderStats(); renderTeam(); renderBreaks();
+            } catch(e) { console.log("Network error"); }
         }
 
-        function getInitials(name) { return name.substring(0,2).toUpperCase(); }
-        function timeAgo(dateStr) {
-            const seconds = Math.floor((new Date() - new Date(dateStr)) / 1000);
-            if(seconds < 60) return "Just now";
-            const mins = Math.floor(seconds/60);
-            if(mins < 60) return `${mins}m ago`;
-            return `${Math.floor(mins/60)}h ago`;
-        }
-        function addAmt(val) { 
-            const el = document.getElementById('f-amt'); 
-            el.value = (parseFloat(el.value) || 0) + val; 
-        }
+        // --- RENDERERS ---
 
         function renderHome() {
-            const today = new Date().toISOString().split('T')[0];
-            let daily = cache.deals.filter(d => d.created_at.startsWith(today));
-            
+            const daily = getFilteredDeals('daily');
             const total = daily.reduce((s, d) => s + d.amount, 0);
-            document.getElementById('h-total').innerText = `$${total.toLocaleString()}`;
-            document.getElementById('h-bar').style.width = `${Math.min((total/cache.config.goal)*100, 100)}%`;
+            const target = cache.targets.daily;
             
-            if(savedSearch) daily = daily.filter(d => d.client_id.toLowerCase().includes(savedSearch) || d.client_email.toLowerCase().includes(savedSearch) || d.agent_name.toLowerCase().includes(savedSearch));
+            document.getElementById('h-total').innerText = `$${total.toLocaleString()}`;
+            document.getElementById('h-target-text').innerText = `Target: $${target.toLocaleString()}`;
+            document.getElementById('h-bar').style.width = `${Math.min((total/target)*100, 100)}%`;
+            
+            let displayList = daily;
+            if(savedSearch) displayList = daily.filter(d => d.client_id.toLowerCase().includes(savedSearch));
 
-            document.getElementById('h-deals').innerHTML = daily.map(d => `
-                <div onclick="openDealModal(${d.id})" class="panel p-4 rounded-2xl flex justify-between items-center active:scale-95 transition-transform">
+            document.getElementById('h-deals').innerHTML = displayList.map(d => `
+                <div class="panel p-4 rounded-2xl flex justify-between items-center border border-white/5">
                     <div class="flex items-center gap-3">
                         <div class="avatar w-10 h-10 text-xs shadow-lg">${getInitials(d.agent_name)}</div>
                         <div>
-                            <p class="text-sm font-bold">${d.agent_name} <span class="text-[9px] font-normal opacity-50 ml-1">${timeAgo(d.created_at)}</span></p>
+                            <p class="text-sm font-bold">${d.agent_name}</p>
                             <p class="text-[10px] opacity-60 uppercase">${d.deal_type} • ${d.client_id}</p>
                         </div>
                     </div>
                     <p class="font-black text-lg" style="color: var(--accent)">+$${d.amount.toLocaleString()}</p>
                 </div>
-            `).join('') || '<p class="text-center opacity-30 py-10 text-xs">No transactions</p>';
+            `).join('') || '<p class="text-center opacity-30 py-10 text-xs">No transactions today</p>';
+        }
+
+        function setStatsPeriod(p) {
+            currentPeriod = p;
+            document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+            document.getElementById(`tab-${p}`).classList.add('active');
+            renderStats();
         }
 
         function renderStats() {
-            const today = new Date().toISOString().split('T')[0];
-            const daily = cache.deals.filter(d => d.created_at.startsWith(today));
-            const agents = {};
-            daily.forEach(d => { agents[d.agent_name] = (agents[d.agent_name] || 0) + d.amount; });
-            const sorted = Object.entries(agents).sort((a,b) => b[1] - a[1]);
-
-            document.getElementById('stats-container').innerHTML = sorted.map(([name, amt], i) => `
-                <div class="panel p-4 rounded-2xl flex justify-between items-center">
-                    <div class="flex items-center gap-3">
-                        <span class="text-sm w-4">${i === 0 ? '🥇' : i+1}</span>
-                        <span class="text-sm font-bold">${name}</span>
-                    </div>
-                    <span class="font-black text-sm" style="color: var(--accent)">$${amt.toLocaleString()}</span>
-                </div>
-            `).join('');
+            const data = getFilteredDeals(currentPeriod);
+            const total = data.reduce((s, d) => s + d.amount, 0);
+            const target = cache.targets[currentPeriod];
             
-            document.getElementById('s-count').innerText = daily.length;
-            document.getElementById('s-avg').innerText = `$${daily.length ? (daily.reduce((s,d)=>s+d.amount,0)/daily.length).toFixed(0) : 0}`;
+            document.getElementById('s-total').innerText = `$${total.toLocaleString()}`;
+            document.getElementById('s-target-pct').innerText = `${((total/target)*100).toFixed(1)}%`;
+
+            let ftds = 0, deps = 0;
+            const agents = {};
+            data.forEach(d => {
+                if(d.deal_type === 'FTD') ftds++; else deps++;
+                agents[d.agent_name] = (agents[d.agent_name] || 0) + d.amount;
+            });
+
+            const totalDeals = data.length || 1;
+            document.getElementById('ftd-count').innerText = `FTD: ${ftds}`; document.getElementById('dep-count').innerText = `DEP: ${deps}`;
+            document.getElementById('ftd-bar').style.width = `${(ftds/totalDeals)*100}%`; document.getElementById('dep-bar').style.width = `${(deps/totalDeals)*100}%`;
+
+            const sorted = Object.entries(agents).sort((a,b) => b[1] - a[1]);
+            document.getElementById('stats-container').innerHTML = sorted.map(([name, amt], i) => `
+                <div class="panel p-4 rounded-2xl flex justify-between items-center border border-white/5">
+                    <div class="flex items-center gap-3"><span class="text-sm w-4">${i===0?'👑':i+1}</span><span class="text-sm font-bold">${name}</span></div>
+                    <span class="font-black text-sm text-emerald-400">$${amt.toLocaleString()}</span>
+                </div>
+            `).join('') || '<p class="text-center opacity-30 text-xs py-5">No data for period</p>';
         }
 
-        // --- NEW BREAK LOGIC ---
+        function renderTeam() {
+            // Aggregate today's agents
+            const daily = getFilteredDeals('daily');
+            const agentStats = {};
+            
+            daily.forEach(d => {
+                agentStats[d.agent_name] = agentStats[d.agent_name] || { amt: 0, deals: 0 };
+                agentStats[d.agent_name].amt += d.amount;
+                agentStats[d.agent_name].deals += 1;
+            });
+
+            // Find who is on break
+            const onBreak = cache.active_breaks.map(b => b.agent_name);
+            
+            // Get unique agents from logs and today's deals
+            const allActiveToday = new Set([...Object.keys(agentStats), ...cache.break_logs.filter(b=>b.created_at.startsWith(new Date().toISOString().split('T')[0])).map(b=>b.agent_name)]);
+            
+            document.getElementById('team-active-count').innerText = allActiveToday.size;
+
+            document.getElementById('team-roster').innerHTML = Array.from(allActiveToday).map(name => {
+                const stats = agentStats[name] || {amt: 0, deals: 0};
+                const isBreak = onBreak.includes(name);
+                const statusColor = isBreak ? 'bg-orange-500' : 'bg-emerald-500';
+                const statusText = isBreak ? 'ON BREAK' : 'ACTIVE';
+
+                return `
+                <div class="panel p-4 rounded-2xl border border-white/5 flex justify-between items-center">
+                    <div class="flex items-center gap-3">
+                        <div class="relative">
+                            <div class="avatar w-12 h-12 text-sm">${getInitials(name)}</div>
+                            <div class="absolute bottom-0 right-0 w-3 h-3 ${statusColor} rounded-full border-2 border-[#1e293b]"></div>
+                        </div>
+                        <div>
+                            <p class="font-bold text-sm">${name}</p>
+                            <p class="text-[9px] font-bold opacity-50 uppercase tracking-wider ${isBreak?'text-orange-400':''}">${statusText}</p>
+                        </div>
+                    </div>
+                    <div class="text-right">
+                        <p class="font-black text-blue-400">$${stats.amt.toLocaleString()}</p>
+                        <p class="text-[10px] opacity-50 uppercase">${stats.deals} Deals</p>
+                    </div>
+                </div>
+            `}).join('') || '<p class="text-center opacity-30 py-10 text-xs">No active agents</p>';
+        }
+
         function renderBreaks() {
             const usage = {};
             const today = new Date().toISOString().split('T')[0];
             
-            // Build Base Agent List & Completed Usage
             cache.break_logs.filter(b => b.created_at.startsWith(today)).forEach(b => {
                 usage[b.agent_name] = usage[b.agent_name] || { big: 0, small: 0 };
                 usage[b.agent_name][b.break_type] += b.duration;
             });
 
-            // Live Timers with specific Pool counting
-            document.getElementById('b-live').innerHTML = cache.active_breaks.map(b => {
-                usage[b.agent_name] = usage[b.agent_name] || { big: 0, small: 0 }; // Ensure agent exists in usage
-                
-                // Max pool for the type being taken
-                const poolMax = 45; 
-                const alreadyUsed = usage[b.agent_name][b.break_type];
-                
-                return `
+            document.getElementById('b-live').innerHTML = cache.active_breaks.map(b => `
                 <div class="flex justify-between items-center p-3 panel rounded-xl border border-white/5">
                     <div>
                         <span class="text-xs font-bold block">${b.agent_name}</span>
-                        <span class="text-[9px] opacity-50 uppercase">${b.break_type} Break</span>
+                        <span class="text-[9px] opacity-50 uppercase text-orange-400">${b.break_type} Break</span>
                     </div>
                     <div class="flex items-center gap-3">
-                        <span class="font-mono text-sm font-bold timer text-emerald-400" 
-                              data-start="${new Date(b.start_time).getTime()}" 
-                              data-used="${alreadyUsed}" 
-                              data-max="${poolMax}">--:--</span>
+                        <span class="font-mono text-sm font-bold timer text-white" data-start="${new Date(b.start_time).getTime()}">--:--</span>
                         <button onclick="endBreak('${b.user_id}')" class="text-[10px] bg-red-500 text-white px-3 py-2 rounded-lg font-bold">STOP</button>
                     </div>
                 </div>
-            `}).join('') || '<p class="text-[10px] opacity-30 text-center py-2">No active breaks</p>';
+            `).join('') || '<p class="text-[10px] opacity-30 text-center py-2">No active breaks</p>';
 
-            // Quota Table Calculation
             document.getElementById('b-quota').innerHTML = Object.entries(usage).map(([name, data]) => {
-                // Determine active break to estimate current burn
-                const active = cache.active_breaks.find(a => a.agent_name === name);
-                let currentBurnBig = 0, currentBurnSmall = 0;
-                if(active) {
-                    const burn = Math.floor((Date.now() - new Date(active.start_time).getTime()) / 60000);
-                    if(active.break_type === 'big') currentBurnBig = burn;
-                    if(active.break_type === 'small') currentBurnSmall = burn;
-                }
-
-                const bigLeft = Math.max(0, 45 - data.big - currentBurnBig);
-                const smallLeft = Math.max(0, 45 - data.small - currentBurnSmall);
-
+                const bigLeft = Math.max(0, 45 - data.big);
+                const smallLeft = Math.max(0, 45 - data.small);
                 return `<tr>
                     <td class="p-3 font-bold">${name}</td>
                     <td class="p-3 ${bigLeft <= 5 ? 'text-red-500' : 'text-blue-400'} font-mono">${bigLeft}m</td>
@@ -289,47 +379,10 @@
             }).join('') || '<tr><td colspan="3" class="text-center p-4 opacity-30 text-[10px]">No breaks taken</td></tr>';
         }
 
-        function tick() {
-            document.getElementById('live-clock').innerText = new Date().toLocaleTimeString();
-            document.querySelectorAll('.timer').forEach(el => {
-                const elapsedMins = (Date.now() - parseInt(el.dataset.start)) / 60000;
-                const totalUsedSoFar = parseFloat(el.dataset.used) + elapsedMins;
-                let remainingMins = parseFloat(el.dataset.max) - totalUsedSoFar;
-                
-                if (remainingMins < 0) {
-                    el.classList.replace('text-emerald-400', 'text-red-500');
-                    el.classList.add('animate-pulse');
-                    const over = Math.abs(remainingMins);
-                    el.innerText = `-${Math.floor(over).toString().padStart(2,'0')}:${Math.floor((over%1)*60).toString().padStart(2,'0')}`;
-                } else {
-                    el.innerText = `${Math.floor(remainingMins).toString().padStart(2,'0')}:${Math.floor((remainingMins%1)*60).toString().padStart(2,'0')}`;
-                }
-            });
-            // Re-render quotas every minute roughly to keep table updated
-            if(new Date().getSeconds() === 0) renderBreaks(); 
-        }
-
-        // --- Core Interactions ---
-        function openDealModal(id = null) {
-            currentEditId = id;
-            document.getElementById('m-deal').classList.remove('hidden');
-            if(id) {
-                const d = cache.deals.find(x => x.id === id);
-                document.getElementById('m-deal-title').innerText = "Edit Deal";
-                document.getElementById('f-cid').value = d.client_id; document.getElementById('f-email').value = d.client_email;
-                document.getElementById('f-amt').value = d.amount; document.getElementById('f-type').value = d.deal_type;
-                document.getElementById('f-method').value = d.payment_method; document.getElementById('f-notes').value = d.notes || "";
-                document.getElementById('deal-submit-btn').innerText = "UPDATE";
-                document.getElementById('deal-edit-actions').classList.remove('hidden');
-            } else {
-                document.getElementById('m-deal-title').innerText = "New Deal";
-                document.getElementById('deal-submit-btn').innerText = "CONFIRM";
-                document.getElementById('deal-edit-actions').classList.add('hidden');
-                document.querySelectorAll('#m-deal input, #m-deal textarea').forEach(i => i.value = '');
-            }
-        }
-
-        async function submitDeal(isDup = false) {
+        // --- ACTIONS ---
+        function saveSearch() { savedSearch = document.getElementById('deal-search').value.toLowerCase(); renderHome(); }
+        
+        async function submitDeal() {
             const amt = parseFloat(document.getElementById('f-amt').value);
             const body = {
                 agent_name: tg.initDataUnsafe.user?.first_name || "Agent", amount: amt,
@@ -337,22 +390,9 @@
                 deal_type: document.getElementById('f-type').value, payment_method: document.getElementById('f-method').value,
                 notes: document.getElementById('f-notes').value
             };
-            
-            const isPut = currentEditId && !isDup;
-            const url = isPut ? `/api/admin/deal/${currentEditId}?password=${adminPass || '13012'}` : '/api/deal';
-            await fetch(url, {method: isPut ? 'PUT' : 'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body)});
-            
-            if(amt >= 1000) confetti({ particleCount: 150, spread: 100, origin: { y: 0.6 } }); // Feature: Whale Confetti
-            if(!audioMuted) document.getElementById('chime').play().catch(()=>{});
+            await fetch('/api/deal', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body)});
+            if(amt >= 1000) confetti({ particleCount: 200, spread: 120, origin: { y: 0.5 } });
             tg.HapticFeedback.notificationOccurred('success');
-            closeModal('m-deal'); refresh();
-        }
-
-        function duplicateDeal() { submitDeal(true); }
-        async function deleteDeal() {
-            if(!adminPass) adminPass = prompt("Admin Pass:");
-            if(!confirm("Delete?")) return;
-            await fetch(`/api/admin/deal/${currentEditId}?password=${adminPass}`, {method:'DELETE'});
             closeModal('m-deal'); refresh();
         }
 
@@ -366,46 +406,71 @@
             refresh();
         }
 
-        // --- Admin ---
+        // --- GOD MODE ADMIN ACTIONS ---
         function openAdmin() {
-            if(!adminPass) adminPass = prompt("Admin Key:");
+            if(!adminPass) adminPass = prompt("Admin Passcode required:");
             if(adminPass === "13012") {
-                document.getElementById('a-goal').value = cache.config.goal || 10000;
-                updateGoalText(cache.config.goal || 10000);
+                document.getElementById('a-t-daily').value = cache.targets.daily;
+                document.getElementById('a-t-weekly').value = cache.targets.weekly;
+                document.getElementById('a-t-monthly').value = cache.targets.monthly;
                 document.getElementById('m-admin').classList.remove('hidden');
+            } else { alert("Access Denied"); adminPass = ''; }
+        }
+
+        async function saveTargets() {
+            const t = {
+                daily: parseInt(document.getElementById('a-t-daily').value),
+                weekly: parseInt(document.getElementById('a-t-weekly').value),
+                monthly: parseInt(document.getElementById('a-t-monthly').value)
+            };
+            await fetch('/api/admin/targets', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({password: adminPass, targets: t})});
+            alert("Targets Updated!"); refresh();
+        }
+
+        async function sendBroadcast() {
+            const msg = document.getElementById('a-broadcast').value;
+            if(!msg) return;
+            await fetch('/api/admin/broadcast', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({password: adminPass, message: msg})});
+            document.getElementById('a-broadcast').value = '';
+            alert("Broadcast Sent!"); refresh();
+        }
+
+        async function executeDanger(action) {
+            if(confirm("WARNING: This action is permanent. Proceed?")) {
+                await fetch(`/api/admin/danger/${action}`, {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({password: adminPass})});
+                alert("Executed."); refresh();
             }
         }
 
-        function generateReport() {
-            const today = new Date().toISOString().split('T')[0];
-            const daily = cache.deals.filter(d => d.created_at.startsWith(today));
-            const total = daily.reduce((s, d) => s + d.amount, 0);
-            
-            const agents = {};
-            daily.forEach(d => { agents[d.agent_name] = (agents[d.agent_name] || 0) + d.amount; });
-            const topAgent = Object.entries(agents).sort((a,b) => b[1] - a[1])[0];
-            
-            const report = `📊 *SHIFT SUMMARY*\n💰 Total Revenue: $${total.toLocaleString()}\n🎯 Shift Goal: ${((total/cache.config.goal)*100).toFixed(1)}%\n🥇 Top Agent: ${topAgent ? topAgent[0] + ' ($'+topAgent[1].toLocaleString()+')' : 'N/A'}\n📦 Total Deals: ${daily.length}`;
-            navigator.clipboard.writeText(report);
-            tg.showAlert("Shift Report Copied to Clipboard!");
+        function openLedger() {
+            document.getElementById('m-ledger').classList.remove('hidden');
+            document.getElementById('m-ledger').classList.add('flex');
+            document.getElementById('ledger-list').innerHTML = cache.deals.map(d => `
+                <div class="p-4 rounded-xl panel border border-white/10 flex justify-between">
+                    <div>
+                        <p class="text-xs font-bold">${d.agent_name}</p>
+                        <p class="text-[10px] opacity-60">${d.client_id} | ${d.created_at.split('T')[0]}</p>
+                    </div>
+                    <p class="font-black text-sm text-blue-400">$${d.amount}</p>
+                </div>
+            `).join('');
         }
 
-        function updateGoalText(val) { document.getElementById('goal-val').innerText = `$${parseInt(val).toLocaleString()}`; }
-        async function saveAdminConfig() {
-            await fetch('/api/admin/config', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({password: adminPass, config: {goal: parseInt(document.getElementById('a-goal').value)}})});
-            closeModal('m-admin'); refresh();
+        // --- UTILS ---
+        function tick() {
+            document.getElementById('live-clock').innerText = new Date().toLocaleTimeString();
+            document.querySelectorAll('.timer').forEach(el => {
+                const elapsedMins = (Date.now() - parseInt(el.dataset.start)) / 60000;
+                el.innerText = `${Math.floor(elapsedMins).toString().padStart(2,'0')}:${Math.floor((elapsedMins%1)*60).toString().padStart(2,'0')}`;
+            });
         }
-
-        // --- Utils ---
-        function clearSearch() { document.getElementById('deal-search').value = ''; saveSearch(); }
-        function saveSearch() { savedSearch = document.getElementById('deal-search').value.toLowerCase(); renderHome(); }
-        function toggleAudio() { audioMuted = !audioMuted; document.getElementById('btn-audio').innerText = audioMuted ? '🔇' : '🔊'; }
         function toggleTheme() {
             document.body.classList.remove(themes[themeIndex]);
             themeIndex = (themeIndex + 1) % themes.length;
             if(themes[themeIndex] !== 'dark') document.body.classList.add(themes[themeIndex]);
         }
-        function closeModal(id) { document.getElementById(id).classList.add('hidden'); }
+        function openDealModal() { document.getElementById('m-deal').classList.remove('hidden'); }
+        function closeModal(id) { document.getElementById(id).classList.add('hidden'); if(id==='m-ledger') document.getElementById(id).classList.remove('flex'); }
         function nav(p) {
             document.querySelectorAll('.page').forEach(el => el.classList.remove('active'));
             document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
@@ -413,9 +478,7 @@
             document.getElementById(`n-${p}`).classList.add('active');
         }
         
-        setInterval(refresh, 15000);
-        setInterval(tick, 1000);
-        refresh();
+        setInterval(refresh, 15000); setInterval(tick, 1000); refresh();
     </script>
 </body>
 </html>
