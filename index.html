@@ -15,13 +15,16 @@
         .page { display: none; padding: 16px; padding-bottom: 120px; min-height: 100vh; }
         .page.active { display: block; animation: fadeIn 0.3s ease; }
         @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
-        input, select, textarea { pointer-events: auto !important; user-select: text !important; background: rgba(0,0,0,0.2) !important; color: var(--text) !important; border: 1px solid rgba(255,255,255,0.1) !important; }
-        .nav-item.active { color: var(--accent); }
+        input, select, textarea { pointer-events: auto !important; user-select: text !important; background: rgba(0,0,0,0.2) !important; color: var(--text) !important; border: 1px solid rgba(255,255,255,0.1) !important; outline: none; }
+        .nav-item { min-width: 60px; opacity: 0.5; transition: 0.2s; }
+        .nav-item.active { color: var(--accent); opacity: 1; }
         .avatar { display: flex; align-items: center; justify-content: center; border-radius: 50%; background: var(--accent); color: white; font-weight: black; }
         .marquee { white-space: nowrap; overflow: hidden; box-sizing: border-box; }
         .marquee span { display: inline-block; padding-left: 100%; animation: marquee 15s linear infinite; }
         @keyframes marquee { 0% { transform: translate(0, 0); } 100% { transform: translate(-100%, 0); } }
-        .tab-btn.active { background: var(--accent); color: white; }
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .breathe-circle { animation: breathe 8s infinite ease-in-out; }
+        @keyframes breathe { 0%, 100% { transform: scale(1); opacity: 0.5; } 50% { transform: scale(1.5); opacity: 1; } }
     </style>
 </head>
 <body class="font-sans">
@@ -51,58 +54,45 @@
             <div class="bg-black/20 rounded-full h-1.5"><div id="h-bar" class="bg-white h-full rounded-full transition-all duration-700 w-0"></div></div>
             <p id="h-target-text" class="text-[9px] font-bold opacity-70 mt-2 text-right">Target: $0</p>
         </div>
-        <div class="flex gap-2 mb-4 relative">
-            <input type="text" id="deal-search" oninput="saveSearch()" placeholder="🔍 Search ID/Email..." class="flex-1 p-3 rounded-xl text-sm outline-none">
-        </div>
-        <h3 class="text-xs font-bold opacity-50 uppercase mb-3 ml-2">Recent Transactions</h3>
+        <h3 class="text-xs font-bold opacity-50 uppercase mb-3 ml-2">Live Floor Feed</h3>
         <div id="h-deals" class="space-y-3"></div>
     </main>
 
     <main id="page-stats" class="page">
         <div class="flex panel rounded-xl p-1 mb-4">
-            <button onclick="setStatsPeriod('daily')" id="tab-daily" class="tab-btn active flex-1 py-2 rounded-lg text-xs font-bold transition-all">DAILY</button>
+            <button onclick="setStatsPeriod('daily')" id="tab-daily" class="tab-btn active flex-1 py-2 rounded-lg text-xs font-bold transition-all bg-blue-600">DAILY</button>
             <button onclick="setStatsPeriod('weekly')" id="tab-weekly" class="tab-btn flex-1 py-2 rounded-lg text-xs font-bold transition-all">WEEKLY</button>
             <button onclick="setStatsPeriod('monthly')" id="tab-monthly" class="tab-btn flex-1 py-2 rounded-lg text-xs font-bold transition-all">MONTHLY</button>
         </div>
-
         <div class="grid grid-cols-2 gap-3 mb-3">
             <div class="panel p-5 rounded-2xl border border-white/5">
                 <p class="text-[10px] opacity-50 font-bold uppercase">Period Total</p>
-                <p id="s-total" class="text-2xl font-black" style="color: var(--accent)">$0</p>
+                <p id="s-total" class="text-xl font-black" style="color: var(--accent)">$0</p>
             </div>
             <div class="panel p-5 rounded-2xl border border-white/5">
                 <p class="text-[10px] opacity-50 font-bold uppercase">Target Progress</p>
-                <p id="s-target-pct" class="text-2xl font-black text-emerald-400">0%</p>
+                <p id="s-target-pct" class="text-xl font-black text-emerald-400">0%</p>
             </div>
         </div>
-        
-        <div class="panel p-4 rounded-2xl mb-6">
-            <div class="flex justify-between text-[10px] font-bold opacity-70 mb-1"><span id="ftd-count">FTD: 0</span><span id="dep-count">DEP: 0</span></div>
-            <div class="w-full bg-slate-700 h-2 rounded-full flex overflow-hidden mb-3">
-                <div id="ftd-bar" class="bg-blue-500 h-full"></div><div id="dep-bar" class="bg-emerald-500 h-full"></div>
-            </div>
-        </div>
-
-        <h3 class="text-xs font-bold opacity-50 uppercase mb-3 ml-2">Top Performers</h3>
+        <h3 class="text-xs font-bold opacity-50 uppercase mb-3 ml-2 mt-6">Top Performers</h3>
         <div id="stats-container" class="space-y-2"></div>
     </main>
 
     <main id="page-team" class="page">
         <div class="panel p-5 rounded-3xl mb-4 text-center">
-            <h2 class="text-2xl font-black text-emerald-400" id="team-active-count">0</h2>
-            <p class="text-[10px] font-bold opacity-50 uppercase tracking-widest">Agents Active Today</p>
+            <h2 class="text-3xl font-black text-emerald-400" id="team-active-count">0</h2>
+            <p class="text-[10px] font-bold opacity-50 uppercase tracking-widest">Agents Online Today</p>
         </div>
-        <h3 class="text-xs font-bold opacity-50 uppercase mb-3 ml-2">Live Roster</h3>
         <div id="team-roster" class="space-y-3"></div>
     </main>
 
     <main id="page-breaks" class="page">
         <div class="grid grid-cols-2 gap-3 mb-6">
             <button onclick="takeBreak('big')" class="panel p-5 rounded-3xl text-sm font-bold border-l-4 border-blue-500 flex flex-col items-start gap-1">
-                <span>🍽️ Big Break</span><span class="text-[9px] opacity-50 font-normal">1 Session (45m)</span>
+                <span>🍽️ Big Break</span><span class="text-[9px] opacity-50 font-normal">45m</span>
             </button>
             <button onclick="takeBreak('small')" class="panel p-5 rounded-3xl text-sm font-bold border-l-4 border-orange-500 flex flex-col items-start gap-1">
-                <span>☕ Small Break</span><span class="text-[9px] opacity-50 font-normal">Pool (45m max)</span>
+                <span>☕ Small Break</span><span class="text-[9px] opacity-50 font-normal">Pool 45m</span>
             </button>
         </div>
         <div class="panel rounded-3xl p-5 mb-4">
@@ -110,45 +100,76 @@
             <div id="b-live" class="space-y-3"></div>
         </div>
         <div class="panel rounded-3xl p-5">
-            <h3 class="text-xs font-bold opacity-50 uppercase mb-4">Remaining Quotas (Today)</h3>
-            <div class="overflow-hidden rounded-xl border border-white/5">
-                <table class="w-full text-left text-xs">
-                    <thead class="bg-black/20 text-[9px] uppercase opacity-60"><tr><th class="p-3">Agent</th><th class="p-3">Big</th><th class="p-3">Small</th></tr></thead>
-                    <tbody id="b-quota" class="divide-y divide-white/5"></tbody>
-                </table>
-            </div>
+            <h3 class="text-xs font-bold opacity-50 uppercase mb-4">Quota Remaining</h3>
+            <table class="w-full text-left text-xs"><tbody id="b-quota" class="divide-y divide-white/5"></tbody></table>
         </div>
     </main>
 
-    <nav class="fixed bottom-0 w-full panel flex justify-around py-3 pb-8 z-50 border-t border-white/5 shadow-2xl">
+    <main id="page-ledger" class="page">
+        <div class="flex gap-2 mb-4">
+            <input type="text" id="ledger-search" oninput="renderLedger()" placeholder="🔍 Search Master Ledger..." class="flex-1 p-3 rounded-xl text-sm">
+        </div>
+        <p class="text-[10px] opacity-50 mb-2">Tap a deal if you are an Admin to delete.</p>
+        <div id="ledger-list" class="space-y-2"></div>
+    </main>
+
+    <main id="page-awards" class="page">
+        <div class="panel p-6 rounded-3xl mb-4 text-center border border-amber-500/30 bg-amber-900/10">
+            <span class="text-4xl mb-2 block">🐋</span>
+            <p class="text-[10px] font-bold uppercase tracking-widest text-amber-500">Biggest Deal (30 Days)</p>
+            <h2 id="a-whale-agent" class="text-2xl font-black mt-1">N/A</h2>
+            <p id="a-whale-amt" class="text-sm opacity-70 font-mono">$0</p>
+        </div>
+        <div class="panel p-6 rounded-3xl text-center border border-blue-500/30 bg-blue-900/10">
+            <span class="text-4xl mb-2 block">🏃‍♂️</span>
+            <p class="text-[10px] font-bold uppercase tracking-widest text-blue-500">Most Deals Closed</p>
+            <h2 id="a-hustle-agent" class="text-2xl font-black mt-1">N/A</h2>
+            <p id="a-hustle-count" class="text-sm opacity-70 font-mono">0 Deals</p>
+        </div>
+    </main>
+
+    <main id="page-scripts" class="page">
+        <h2 class="text-xl font-black mb-4 flex items-center gap-2">📚 Floor Playbook</h2>
+        <div id="scripts-list" class="space-y-3"></div>
+    </main>
+
+    <main id="page-zen" class="page flex flex-col items-center justify-center text-center min-h-[80vh]">
+        <h2 class="text-xl font-black mb-10 opacity-50">Take a breath.</h2>
+        <div class="w-32 h-32 rounded-full bg-blue-500/20 border-4 border-blue-500 flex items-center justify-center breathe-circle mb-10">
+            <span class="text-xs font-bold opacity-70">Inhale...</span>
+        </div>
+        <button onclick="flipCoin()" class="panel px-6 py-3 rounded-xl font-bold border border-white/10 active:scale-95 transition">🪙 Flip a Coin</button>
+        <p id="coin-result" class="mt-4 font-black text-2xl text-amber-400 h-8"></p>
+    </main>
+
+    <nav class="fixed bottom-0 w-full panel flex overflow-x-auto py-3 pb-8 z-50 border-t border-white/5 shadow-2xl no-scrollbar gap-2 px-2 items-center">
         <button onclick="nav('home')" id="n-home" class="nav-item active flex flex-col items-center gap-1"><span class="text-xl">🏠</span><span class="text-[9px] font-bold">HOME</span></button>
-        <button onclick="nav('stats')" id="n-stats" class="nav-item flex flex-col items-center gap-1"><span class="text-xl">📈</span><span class="text-[9px] font-bold">ANALYTICS</span></button>
+        <button onclick="nav('stats')" id="n-stats" class="nav-item flex flex-col items-center gap-1"><span class="text-xl">📈</span><span class="text-[9px] font-bold">STATS</span></button>
         <button onclick="nav('team')" id="n-team" class="nav-item flex flex-col items-center gap-1"><span class="text-xl">👥</span><span class="text-[9px] font-bold">TEAM</span></button>
         <button onclick="nav('breaks')" id="n-breaks" class="nav-item flex flex-col items-center gap-1"><span class="text-xl">⏳</span><span class="text-[9px] font-bold">BREAKS</span></button>
+        <button onclick="nav('ledger')" id="n-ledger" class="nav-item flex flex-col items-center gap-1"><span class="text-xl">📂</span><span class="text-[9px] font-bold">LEDGER</span></button>
+        <button onclick="nav('scripts')" id="n-scripts" class="nav-item flex flex-col items-center gap-1"><span class="text-xl">📚</span><span class="text-[9px] font-bold">SCRIPTS</span></button>
+        <button onclick="nav('awards')" id="n-awards" class="nav-item flex flex-col items-center gap-1"><span class="text-xl">🏆</span><span class="text-[9px] font-bold">AWARDS</span></button>
+        <button onclick="nav('zen')" id="n-zen" class="nav-item flex flex-col items-center gap-1"><span class="text-xl">🧘</span><span class="text-[9px] font-bold">ZEN</span></button>
     </nav>
 
     <button onclick="openDealModal()" class="fixed bottom-24 right-5 w-14 h-14 rounded-full shadow-[0_0_20px_rgba(59,130,246,0.5)] text-3xl font-black flex items-center justify-center z-40 text-white transition-transform active:scale-90" style="background: var(--accent)">+</button>
 
     <div id="m-deal" class="fixed inset-0 bg-black/95 z-[100] hidden p-5 overflow-y-auto backdrop-blur-md">
         <div class="panel p-6 rounded-[2rem] mt-10 border border-white/10 shadow-2xl">
-            <div class="flex justify-between items-center mb-6"><h2 id="m-deal-title" class="text-xl font-black">Transaction</h2><button onclick="closeModal('m-deal')" class="text-xl opacity-50">✕</button></div>
+            <div class="flex justify-between items-center mb-6"><h2 id="m-deal-title" class="text-xl font-black">New Deal</h2><button onclick="closeModal('m-deal')" class="text-xl opacity-50">✕</button></div>
             <div class="space-y-4">
                 <input id="f-cid" type="text" placeholder="Client ID" class="w-full p-4 rounded-xl">
                 <input id="f-email" type="email" placeholder="Client Email" class="w-full p-4 rounded-xl">
                 <div class="relative">
                     <input id="f-amt" type="number" placeholder="Amount ($)" class="w-full p-4 rounded-xl text-xl font-black text-center" style="color: var(--accent)">
-                    <div class="flex gap-2 mt-2 justify-center">
-                        <button onclick="addAmt(100)" class="bg-white/10 px-4 py-2 rounded-xl text-xs font-bold">+100</button>
-                        <button onclick="addAmt(500)" class="bg-white/10 px-4 py-2 rounded-xl text-xs font-bold">+500</button>
-                        <button onclick="addAmt(1000)" class="bg-white/10 px-4 py-2 rounded-xl text-xs font-bold">+1k</button>
-                    </div>
                 </div>
                 <div class="flex gap-2">
                     <select id="f-type" class="flex-1 p-4 rounded-xl"><option>FTD</option><option>Deposit</option></select>
                     <select id="f-method" class="flex-1 p-4 rounded-xl"><option>Crypto</option><option>Wire</option><option>Stripe</option></select>
                 </div>
                 <textarea id="f-notes" placeholder="Notes/TxID (Optional)" class="w-full p-4 rounded-xl h-20 text-sm"></textarea>
-                <button id="deal-submit-btn" onclick="submitDeal()" class="w-full py-4 rounded-xl font-black text-white shadow-lg text-lg" style="background: var(--accent)">CONFIRM</button>
+                <button onclick="submitDeal()" class="w-full py-4 rounded-xl font-black text-white shadow-lg text-lg" style="background: var(--accent)">CONFIRM</button>
             </div>
         </div>
     </div>
@@ -159,13 +180,23 @@
             <button onclick="closeModal('m-admin')" class="bg-white/10 px-3 py-1 rounded-lg text-xs font-bold">EXIT</button>
         </div>
         
-        <div class="p-5 space-y-8">
+        <div class="p-5 space-y-6">
+            <button onclick="exportCSV()" class="w-full bg-emerald-600 py-3 rounded-xl font-bold text-xs text-white shadow-lg">📥 EXPORT FULL LEDGER (CSV)</button>
+            <button onclick="ghostDeal()" class="w-full bg-purple-600 py-3 rounded-xl font-bold text-xs text-white shadow-lg">👻 LOG GHOST DEAL (AS ANOTHER AGENT)</button>
+            
             <div class="panel p-5 rounded-2xl border border-white/5">
                 <h3 class="text-xs font-bold opacity-50 uppercase mb-3">Global Broadcast</h3>
                 <div class="flex gap-2">
                     <input id="a-broadcast" type="text" placeholder="Message to all agents..." class="flex-1 p-3 rounded-xl text-sm">
                     <button onclick="sendBroadcast()" class="bg-amber-600 px-4 rounded-xl font-bold text-white text-xs shadow-lg">SEND</button>
                 </div>
+            </div>
+
+            <div class="panel p-5 rounded-2xl border border-white/5">
+                <h3 class="text-xs font-bold opacity-50 uppercase mb-3">Add Playbook Script</h3>
+                <input id="a-s-title" type="text" placeholder="Script Title" class="w-full p-3 rounded-xl mb-2 text-sm">
+                <textarea id="a-s-content" placeholder="Script Content..." class="w-full p-3 rounded-xl h-20 text-sm mb-2"></textarea>
+                <button onclick="addScript()" class="w-full py-3 rounded-xl font-bold text-white bg-blue-600">PUBLISH SCRIPT</button>
             </div>
 
             <div class="panel p-5 rounded-2xl border border-white/5">
@@ -178,10 +209,6 @@
                 </div>
             </div>
 
-            <button onclick="openLedger()" class="w-full panel py-5 rounded-2xl font-black text-white border border-white/10 flex justify-between px-5 items-center">
-                <span class="flex items-center gap-3"><span class="text-2xl">📂</span> Master Ledger Explorer</span><span>→</span>
-            </button>
-
             <div class="panel p-5 rounded-2xl border border-red-500/20 bg-red-900/10">
                 <h3 class="text-xs font-black text-red-500 uppercase mb-4">Danger Zone</h3>
                 <div class="space-y-3">
@@ -192,293 +219,202 @@
         </div>
     </div>
 
-    <div id="m-ledger" class="fixed inset-0 bg-black/95 z-[300] hidden flex-col">
-        <header class="flex justify-between items-center px-4 py-4 panel border-b border-white/5">
-            <h2 class="font-black text-lg">Master Ledger</h2>
-            <button onclick="closeModal('m-ledger')" class="bg-slate-800 px-3 py-1 rounded text-xs font-bold">CLOSE</button>
-        </header>
-        <div class="flex-1 overflow-y-auto p-4 space-y-2" id="ledger-list"></div>
-    </div>
-
     <script>
         const tg = window.Telegram.WebApp;
         tg.expand();
-        let cache = { deals: [], active_breaks: [], break_logs: [], targets: {daily:10000, weekly:50000, monthly:200000}, announcement: null };
-        let adminPass = '';
-        let currentPeriod = 'daily';
-        let savedSearch = '';
-        let themeIndex = 0; const themes = ['dark', 'theme-green', 'theme-amoled'];
+        let cache = { deals: [], active_breaks: [], break_logs: [], playbook: [], targets: {daily:10000, weekly:50000, monthly:200000}, announcement: null };
+        let adminPass = ''; let currentPeriod = 'daily'; let themeIndex = 0; const themes = ['dark', 'theme-green', 'theme-amoled'];
 
         function getInitials(n) { return n.substring(0,2).toUpperCase(); }
-        function addAmt(v) { const el = document.getElementById('f-amt'); el.value = (parseFloat(el.value) || 0) + v; }
-
         function getFilteredDeals(period) {
             const now = new Date();
             return cache.deals.filter(d => {
                 const dealDate = new Date(d.created_at);
                 if(period === 'daily') return dealDate.toDateString() === now.toDateString();
-                if(period === 'weekly') { const diff = now - dealDate; return diff <= 7 * 24 * 60 * 60 * 1000; }
-                if(period === 'monthly') { const diff = now - dealDate; return diff <= 30 * 24 * 60 * 60 * 1000; }
+                if(period === 'weekly') return (now - dealDate) <= 7 * 24 * 60 * 60 * 1000;
+                if(period === 'monthly') return (now - dealDate) <= 30 * 24 * 60 * 60 * 1000;
                 return true;
             });
         }
 
         async function refresh() {
             try {
-                const res = await fetch('/api/dashboard');
-                cache = await res.json();
-                
-                // Handle Broadcast
+                const res = await fetch('/api/dashboard'); cache = await res.json();
                 if(cache.announcement) {
                     document.getElementById('broadcast-banner').classList.remove('hidden');
                     document.getElementById('broadcast-text').innerText = `⚠️ ${cache.announcement.message}`;
                 }
-
-                renderHome(); renderStats(); renderTeam(); renderBreaks();
-            } catch(e) { console.log("Network error"); }
+                renderAll();
+            } catch(e) {}
         }
 
-        // --- RENDERERS ---
+        function renderAll() {
+            renderHome(); renderStats(); renderTeam(); renderBreaks(); renderLedger(); renderAwards(); renderScripts();
+        }
 
         function renderHome() {
             const daily = getFilteredDeals('daily');
             const total = daily.reduce((s, d) => s + d.amount, 0);
-            const target = cache.targets.daily;
-            
             document.getElementById('h-total').innerText = `$${total.toLocaleString()}`;
-            document.getElementById('h-target-text').innerText = `Target: $${target.toLocaleString()}`;
-            document.getElementById('h-bar').style.width = `${Math.min((total/target)*100, 100)}%`;
-            
-            let displayList = daily;
-            if(savedSearch) displayList = daily.filter(d => d.client_id.toLowerCase().includes(savedSearch));
-
-            document.getElementById('h-deals').innerHTML = displayList.map(d => `
+            document.getElementById('h-target-text').innerText = `Target: $${cache.targets.daily.toLocaleString()}`;
+            document.getElementById('h-bar').style.width = `${Math.min((total/cache.targets.daily)*100, 100)}%`;
+            document.getElementById('h-deals').innerHTML = daily.map(d => `
                 <div class="panel p-4 rounded-2xl flex justify-between items-center border border-white/5">
-                    <div class="flex items-center gap-3">
-                        <div class="avatar w-10 h-10 text-xs shadow-lg">${getInitials(d.agent_name)}</div>
-                        <div>
-                            <p class="text-sm font-bold">${d.agent_name}</p>
-                            <p class="text-[10px] opacity-60 uppercase">${d.deal_type} • ${d.client_id}</p>
-                        </div>
-                    </div>
+                    <div class="flex items-center gap-3"><div class="avatar w-10 h-10 text-xs">${getInitials(d.agent_name)}</div>
+                    <div><p class="text-sm font-bold">${d.agent_name}</p><p class="text-[10px] opacity-60 uppercase">${d.deal_type} • ${d.client_id}</p></div></div>
                     <p class="font-black text-lg" style="color: var(--accent)">+$${d.amount.toLocaleString()}</p>
-                </div>
-            `).join('') || '<p class="text-center opacity-30 py-10 text-xs">No transactions today</p>';
+                </div>`).join('') || '<p class="text-center opacity-30 py-5 text-xs">No deals yet today.</p>';
         }
 
-        function setStatsPeriod(p) {
-            currentPeriod = p;
-            document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-            document.getElementById(`tab-${p}`).classList.add('active');
-            renderStats();
+        function setStatsPeriod(p) { 
+            currentPeriod = p; 
+            document.querySelectorAll('.tab-btn').forEach(b => {b.classList.remove('bg-blue-600'); b.classList.add('bg-transparent');});
+            document.getElementById(`tab-${p}`).classList.add('bg-blue-600');
+            renderStats(); 
         }
 
         function renderStats() {
             const data = getFilteredDeals(currentPeriod);
             const total = data.reduce((s, d) => s + d.amount, 0);
-            const target = cache.targets[currentPeriod];
-            
             document.getElementById('s-total').innerText = `$${total.toLocaleString()}`;
-            document.getElementById('s-target-pct').innerText = `${((total/target)*100).toFixed(1)}%`;
-
-            let ftds = 0, deps = 0;
+            document.getElementById('s-target-pct').innerText = `${((total/cache.targets[currentPeriod])*100).toFixed(1)}%`;
             const agents = {};
-            data.forEach(d => {
-                if(d.deal_type === 'FTD') ftds++; else deps++;
-                agents[d.agent_name] = (agents[d.agent_name] || 0) + d.amount;
-            });
-
-            const totalDeals = data.length || 1;
-            document.getElementById('ftd-count').innerText = `FTD: ${ftds}`; document.getElementById('dep-count').innerText = `DEP: ${deps}`;
-            document.getElementById('ftd-bar').style.width = `${(ftds/totalDeals)*100}%`; document.getElementById('dep-bar').style.width = `${(deps/totalDeals)*100}%`;
-
-            const sorted = Object.entries(agents).sort((a,b) => b[1] - a[1]);
-            document.getElementById('stats-container').innerHTML = sorted.map(([name, amt], i) => `
+            data.forEach(d => { agents[d.agent_name] = (agents[d.agent_name] || 0) + d.amount; });
+            document.getElementById('stats-container').innerHTML = Object.entries(agents).sort((a,b) => b[1] - a[1]).map(([name, amt], i) => `
                 <div class="panel p-4 rounded-2xl flex justify-between items-center border border-white/5">
                     <div class="flex items-center gap-3"><span class="text-sm w-4">${i===0?'👑':i+1}</span><span class="text-sm font-bold">${name}</span></div>
                     <span class="font-black text-sm text-emerald-400">$${amt.toLocaleString()}</span>
-                </div>
-            `).join('') || '<p class="text-center opacity-30 text-xs py-5">No data for period</p>';
+                </div>`).join('');
         }
 
         function renderTeam() {
-            // Aggregate today's agents
-            const daily = getFilteredDeals('daily');
-            const agentStats = {};
-            
-            daily.forEach(d => {
-                agentStats[d.agent_name] = agentStats[d.agent_name] || { amt: 0, deals: 0 };
-                agentStats[d.agent_name].amt += d.amount;
-                agentStats[d.agent_name].deals += 1;
-            });
-
-            // Find who is on break
+            const daily = getFilteredDeals('daily'); const agentStats = {};
+            daily.forEach(d => { agentStats[d.agent_name] = agentStats[d.agent_name] || { amt: 0, deals: 0 }; agentStats[d.agent_name].amt += d.amount; agentStats[d.agent_name].deals++; });
             const onBreak = cache.active_breaks.map(b => b.agent_name);
-            
-            // Get unique agents from logs and today's deals
-            const allActiveToday = new Set([...Object.keys(agentStats), ...cache.break_logs.filter(b=>b.created_at.startsWith(new Date().toISOString().split('T')[0])).map(b=>b.agent_name)]);
-            
-            document.getElementById('team-active-count').innerText = allActiveToday.size;
-
-            document.getElementById('team-roster').innerHTML = Array.from(allActiveToday).map(name => {
-                const stats = agentStats[name] || {amt: 0, deals: 0};
+            const active = new Set([...Object.keys(agentStats), ...cache.break_logs.filter(b=>b.created_at.startsWith(new Date().toISOString().split('T')[0])).map(b=>b.agent_name)]);
+            document.getElementById('team-active-count').innerText = active.size;
+            document.getElementById('team-roster').innerHTML = Array.from(active).map(name => {
                 const isBreak = onBreak.includes(name);
-                const statusColor = isBreak ? 'bg-orange-500' : 'bg-emerald-500';
-                const statusText = isBreak ? 'ON BREAK' : 'ACTIVE';
-
-                return `
-                <div class="panel p-4 rounded-2xl border border-white/5 flex justify-between items-center">
-                    <div class="flex items-center gap-3">
-                        <div class="relative">
-                            <div class="avatar w-12 h-12 text-sm">${getInitials(name)}</div>
-                            <div class="absolute bottom-0 right-0 w-3 h-3 ${statusColor} rounded-full border-2 border-[#1e293b]"></div>
-                        </div>
-                        <div>
-                            <p class="font-bold text-sm">${name}</p>
-                            <p class="text-[9px] font-bold opacity-50 uppercase tracking-wider ${isBreak?'text-orange-400':''}">${statusText}</p>
-                        </div>
-                    </div>
-                    <div class="text-right">
-                        <p class="font-black text-blue-400">$${stats.amt.toLocaleString()}</p>
-                        <p class="text-[10px] opacity-50 uppercase">${stats.deals} Deals</p>
-                    </div>
-                </div>
-            `}).join('') || '<p class="text-center opacity-30 py-10 text-xs">No active agents</p>';
+                return `<div class="panel p-4 rounded-2xl flex justify-between items-center">
+                    <div class="flex items-center gap-3"><div class="avatar w-10 h-10">${getInitials(name)}</div>
+                    <div><p class="font-bold text-sm">${name}</p><p class="text-[9px] ${isBreak?'text-orange-400':'text-emerald-400'}">${isBreak?'ON BREAK':'ACTIVE'}</p></div></div>
+                    <div class="text-right"><p class="font-black text-blue-400">$${(agentStats[name]?.amt||0).toLocaleString()}</p><p class="text-[10px] opacity-50">${agentStats[name]?.deals||0} Deals</p></div>
+                </div>`;
+            }).join('');
         }
 
         function renderBreaks() {
-            const usage = {};
-            const today = new Date().toISOString().split('T')[0];
-            
-            cache.break_logs.filter(b => b.created_at.startsWith(today)).forEach(b => {
-                usage[b.agent_name] = usage[b.agent_name] || { big: 0, small: 0 };
-                usage[b.agent_name][b.break_type] += b.duration;
-            });
-
-            document.getElementById('b-live').innerHTML = cache.active_breaks.map(b => `
-                <div class="flex justify-between items-center p-3 panel rounded-xl border border-white/5">
-                    <div>
-                        <span class="text-xs font-bold block">${b.agent_name}</span>
-                        <span class="text-[9px] opacity-50 uppercase text-orange-400">${b.break_type} Break</span>
-                    </div>
-                    <div class="flex items-center gap-3">
-                        <span class="font-mono text-sm font-bold timer text-white" data-start="${new Date(b.start_time).getTime()}">--:--</span>
-                        <button onclick="endBreak('${b.user_id}')" class="text-[10px] bg-red-500 text-white px-3 py-2 rounded-lg font-bold">STOP</button>
-                    </div>
-                </div>
-            `).join('') || '<p class="text-[10px] opacity-30 text-center py-2">No active breaks</p>';
-
-            document.getElementById('b-quota').innerHTML = Object.entries(usage).map(([name, data]) => {
-                const bigLeft = Math.max(0, 45 - data.big);
-                const smallLeft = Math.max(0, 45 - data.small);
-                return `<tr>
-                    <td class="p-3 font-bold">${name}</td>
-                    <td class="p-3 ${bigLeft <= 5 ? 'text-red-500' : 'text-blue-400'} font-mono">${bigLeft}m</td>
-                    <td class="p-3 ${smallLeft <= 5 ? 'text-red-500' : 'text-orange-400'} font-mono">${smallLeft}m</td>
-                </tr>`;
-            }).join('') || '<tr><td colspan="3" class="text-center p-4 opacity-30 text-[10px]">No breaks taken</td></tr>';
+            const usage = {}; const today = new Date().toISOString().split('T')[0];
+            cache.break_logs.filter(b => b.created_at.startsWith(today)).forEach(b => { usage[b.agent_name] = usage[b.agent_name] || { big: 0, small: 0 }; usage[b.agent_name][b.break_type] += b.duration; });
+            document.getElementById('b-live').innerHTML = cache.active_breaks.map(b => `<div class="flex justify-between p-3 panel rounded-xl"><div><span class="text-xs font-bold block">${b.agent_name}</span><span class="text-[9px] text-orange-400">${b.break_type} Break</span></div><div class="flex items-center gap-3"><span class="timer font-mono text-sm" data-start="${new Date(b.start_time).getTime()}"></span><button onclick="endBreak('${b.user_id}')" class="text-[10px] bg-red-500 px-2 py-1 rounded">STOP</button></div></div>`).join('') || '<p class="text-[10px] opacity-50">No active breaks</p>';
+            document.getElementById('b-quota').innerHTML = Object.entries(usage).map(([name, data]) => `<tr><td class="p-3">${name}</td><td class="p-3">${Math.max(0, 45 - data.big)}m</td><td class="p-3">${Math.max(0, 45 - data.small)}m</td></tr>`).join('');
         }
 
-        // --- ACTIONS ---
-        function saveSearch() { savedSearch = document.getElementById('deal-search').value.toLowerCase(); renderHome(); }
-        
-        async function submitDeal() {
-            const amt = parseFloat(document.getElementById('f-amt').value);
-            const body = {
-                agent_name: tg.initDataUnsafe.user?.first_name || "Agent", amount: amt,
-                client_id: document.getElementById('f-cid').value, client_email: document.getElementById('f-email').value,
-                deal_type: document.getElementById('f-type').value, payment_method: document.getElementById('f-method').value,
-                notes: document.getElementById('f-notes').value
-            };
-            await fetch('/api/deal', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body)});
-            if(amt >= 1000) confetti({ particleCount: 200, spread: 120, origin: { y: 0.5 } });
-            tg.HapticFeedback.notificationOccurred('success');
-            closeModal('m-deal'); refresh();
-        }
-
-        async function takeBreak(type) {
-            const b = {user_id: tg.initDataUnsafe.user?.id || Date.now(), agent_name: tg.initDataUnsafe.user?.first_name || "Agent", break_type: type };
-            await fetch('/api/break', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(b)});
-            refresh();
-        }
-        async function endBreak(uid) {
-            await fetch('/api/break/end', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({user_id: uid})});
-            refresh();
-        }
-
-        // --- GOD MODE ADMIN ACTIONS ---
-        function openAdmin() {
-            if(!adminPass) adminPass = prompt("Admin Passcode required:");
-            if(adminPass === "13012") {
-                document.getElementById('a-t-daily').value = cache.targets.daily;
-                document.getElementById('a-t-weekly').value = cache.targets.weekly;
-                document.getElementById('a-t-monthly').value = cache.targets.monthly;
-                document.getElementById('m-admin').classList.remove('hidden');
-            } else { alert("Access Denied"); adminPass = ''; }
-        }
-
-        async function saveTargets() {
-            const t = {
-                daily: parseInt(document.getElementById('a-t-daily').value),
-                weekly: parseInt(document.getElementById('a-t-weekly').value),
-                monthly: parseInt(document.getElementById('a-t-monthly').value)
-            };
-            await fetch('/api/admin/targets', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({password: adminPass, targets: t})});
-            alert("Targets Updated!"); refresh();
-        }
-
-        async function sendBroadcast() {
-            const msg = document.getElementById('a-broadcast').value;
-            if(!msg) return;
-            await fetch('/api/admin/broadcast', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({password: adminPass, message: msg})});
-            document.getElementById('a-broadcast').value = '';
-            alert("Broadcast Sent!"); refresh();
-        }
-
-        async function executeDanger(action) {
-            if(confirm("WARNING: This action is permanent. Proceed?")) {
-                await fetch(`/api/admin/danger/${action}`, {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({password: adminPass})});
-                alert("Executed."); refresh();
-            }
-        }
-
-        function openLedger() {
-            document.getElementById('m-ledger').classList.remove('hidden');
-            document.getElementById('m-ledger').classList.add('flex');
-            document.getElementById('ledger-list').innerHTML = cache.deals.map(d => `
-                <div class="p-4 rounded-xl panel border border-white/10 flex justify-between">
-                    <div>
-                        <p class="text-xs font-bold">${d.agent_name}</p>
-                        <p class="text-[10px] opacity-60">${d.client_id} | ${d.created_at.split('T')[0]}</p>
-                    </div>
-                    <p class="font-black text-sm text-blue-400">$${d.amount}</p>
+        function renderLedger() {
+            const q = document.getElementById('ledger-search').value.toLowerCase();
+            const list = q ? cache.deals.filter(d => d.client_id.toLowerCase().includes(q) || d.agent_name.toLowerCase().includes(q)) : cache.deals;
+            document.getElementById('ledger-list').innerHTML = list.map(d => `
+                <div onclick="adminDelete(${d.id})" class="panel p-3 rounded-xl flex justify-between text-xs cursor-pointer active:bg-white/5">
+                    <div><span class="font-bold">${d.agent_name}</span> <span class="opacity-50 mx-1">|</span> <span class="opacity-80">${d.client_id}</span><br><span class="text-[9px] opacity-50">${d.created_at.split('T')[0]} - ${d.deal_type}</span></div>
+                    <span class="font-black text-emerald-400">$${d.amount}</span>
                 </div>
             `).join('');
         }
 
-        // --- UTILS ---
+        function renderAwards() {
+            if(!cache.deals.length) return;
+            // Whale (Highest single deal)
+            const whale = cache.deals.reduce((prev, current) => (prev.amount > current.amount) ? prev : current);
+            document.getElementById('a-whale-agent').innerText = whale.agent_name;
+            document.getElementById('a-whale-amt').innerText = `$${whale.amount.toLocaleString()} (${whale.client_id})`;
+            
+            // Hustler (Most deals count)
+            const counts = {}; cache.deals.forEach(d => counts[d.agent_name] = (counts[d.agent_name] || 0) + 1);
+            const hustler = Object.keys(counts).reduce((a, b) => counts[a] > counts[b] ? a : b);
+            document.getElementById('a-hustle-agent').innerText = hustler;
+            document.getElementById('a-hustle-count').innerText = `${counts[hustler]} Deals Logged`;
+        }
+
+        function renderScripts() {
+            document.getElementById('scripts-list').innerHTML = cache.playbook.map(s => `
+                <div class="panel p-4 rounded-xl">
+                    <p class="text-[10px] text-blue-400 font-bold uppercase mb-1">${s.category}</p>
+                    <h4 class="font-black mb-2">${s.title}</h4>
+                    <p class="text-xs opacity-80 whitespace-pre-wrap">${s.content}</p>
+                </div>
+            `).join('');
+        }
+
+        // --- ACTIONS ---
+        async function submitDeal(forceName = null) {
+            const amt = parseFloat(document.getElementById('f-amt').value);
+            const body = {
+                agent_name: forceName || tg.initDataUnsafe.user?.first_name || "Agent", amount: amt,
+                client_id: document.getElementById('f-cid').value, client_email: document.getElementById('f-email').value,
+                deal_type: document.getElementById('f-type').value, payment_method: document.getElementById('f-method').value
+            };
+            await fetch('/api/deal', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body)});
+            if(amt >= 1000) confetti({ particleCount: 200, spread: 120, origin: { y: 0.5 } });
+            tg.HapticFeedback.notificationOccurred('success'); closeModal('m-deal'); refresh();
+        }
+
+        async function adminDelete(id) {
+            if(!adminPass) adminPass = prompt("Admin Passcode required to delete:");
+            if(adminPass !== "13012") return;
+            if(confirm("Permanently delete this record?")) {
+                await fetch(`/api/admin/deal/${id}?password=13012`, {method:'DELETE'});
+                refresh();
+            }
+        }
+
+        async function takeBreak(type) { await fetch('/api/break', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({user_id: tg.initDataUnsafe.user?.id || Date.now(), agent_name: tg.initDataUnsafe.user?.first_name || "Agent", break_type: type })}); refresh(); }
+        async function endBreak(uid) { await fetch('/api/break/end', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({user_id: uid})}); refresh(); }
+
+        // --- ADMIN / UTILS ---
+        function openAdmin() {
+            if(!adminPass) adminPass = prompt("Admin Key:");
+            if(adminPass === "13012") {
+                document.getElementById('a-t-daily').value = cache.targets.daily; document.getElementById('a-t-weekly').value = cache.targets.weekly; document.getElementById('a-t-monthly').value = cache.targets.monthly;
+                document.getElementById('m-admin').classList.remove('hidden');
+            } else { alert("Denied"); adminPass = ''; }
+        }
+        async function saveTargets() { await fetch('/api/admin/targets', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({password: adminPass, targets: {daily: parseInt(document.getElementById('a-t-daily').value), weekly: parseInt(document.getElementById('a-t-weekly').value), monthly: parseInt(document.getElementById('a-t-monthly').value)}})}); alert("Updated"); refresh(); }
+        async function sendBroadcast() { await fetch('/api/admin/broadcast', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({password: adminPass, message: document.getElementById('a-broadcast').value})}); document.getElementById('a-broadcast').value = ''; alert("Sent"); refresh(); }
+        async function addScript() { await fetch('/api/admin/playbook', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({password: adminPass, title: document.getElementById('a-s-title').value, content: document.getElementById('a-s-content').value})}); alert("Added"); refresh(); }
+        async function executeDanger(act) { if(confirm("Permanent. Proceed?")) { await fetch(`/api/admin/danger/${act}`, {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({password: adminPass})}); alert("Executed."); refresh(); } }
+        
+        function ghostDeal() {
+            const agent = prompt("Enter Agent Name exactly:");
+            if(agent) { document.getElementById('m-admin').classList.add('hidden'); openDealModal(); document.getElementById('m-deal-title').innerText = `Ghost Logging as: ${agent}`; document.getElementById('m-deal').dataset.ghost = agent; }
+        }
+
+        function exportCSV() {
+            let csv = "ID,Agent,Client ID,Email,Type,Method,Amount,Date\n";
+            cache.deals.forEach(d => { csv += `${d.id},${d.agent_name},${d.client_id},${d.client_email},${d.deal_type},${d.payment_method},${d.amount},${d.created_at}\n`; });
+            const blob = new Blob([csv], { type: 'text/csv' });
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a'); a.setAttribute('href', url); a.setAttribute('download', 'shift_ledger.csv'); a.click();
+        }
+
+        function flipCoin() {
+            const r = document.getElementById('coin-result');
+            r.innerText = "Flipping...";
+            setTimeout(() => { r.innerText = Math.random() > 0.5 ? "HEADS" : "TAILS"; }, 800);
+        }
+
         function tick() {
             document.getElementById('live-clock').innerText = new Date().toLocaleTimeString();
-            document.querySelectorAll('.timer').forEach(el => {
-                const elapsedMins = (Date.now() - parseInt(el.dataset.start)) / 60000;
-                el.innerText = `${Math.floor(elapsedMins).toString().padStart(2,'0')}:${Math.floor((elapsedMins%1)*60).toString().padStart(2,'0')}`;
-            });
+            document.querySelectorAll('.timer').forEach(el => { const e = (Date.now() - parseInt(el.dataset.start)) / 60000; el.innerText = `${Math.floor(e).toString().padStart(2,'0')}:${Math.floor((e%1)*60).toString().padStart(2,'0')}`; });
         }
-        function toggleTheme() {
-            document.body.classList.remove(themes[themeIndex]);
-            themeIndex = (themeIndex + 1) % themes.length;
-            if(themes[themeIndex] !== 'dark') document.body.classList.add(themes[themeIndex]);
-        }
-        function openDealModal() { document.getElementById('m-deal').classList.remove('hidden'); }
-        function closeModal(id) { document.getElementById(id).classList.add('hidden'); if(id==='m-ledger') document.getElementById(id).classList.remove('flex'); }
-        function nav(p) {
-            document.querySelectorAll('.page').forEach(el => el.classList.remove('active'));
-            document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
-            document.getElementById(`page-${p}`).classList.add('active');
-            document.getElementById(`n-${p}`).classList.add('active');
-        }
+        function toggleTheme() { document.body.classList.remove(themes[themeIndex]); themeIndex = (themeIndex + 1) % themes.length; if(themes[themeIndex] !== 'dark') document.body.classList.add(themes[themeIndex]); }
+        function openDealModal() { document.getElementById('m-deal').classList.remove('hidden'); document.getElementById('m-deal').dataset.ghost = ''; document.getElementById('m-deal-title').innerText = "New Deal"; }
+        function closeModal(id) { document.getElementById(id).classList.add('hidden'); }
+        function nav(p) { document.querySelectorAll('.page').forEach(el => el.classList.remove('active')); document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active')); document.getElementById(`page-${p}`).classList.add('active'); document.getElementById(`n-${p}`).classList.add('active'); }
         
         setInterval(refresh, 15000); setInterval(tick, 1000); refresh();
+        // Override submit deal for ghost mode
+        const originalSubmit = submitDeal;
+        submitDeal = async function() { const ghost = document.getElementById('m-deal').dataset.ghost; await originalSubmit(ghost || null); }
     </script>
 </body>
 </html>
