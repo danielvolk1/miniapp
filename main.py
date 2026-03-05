@@ -28,37 +28,28 @@ async def home():
 
 @app.get("/api/dashboard")
 async def get_dashboard():
-    # Fetch data for the last 30 days for comprehensive analytics
+    # Fetch data for the last 30 days
     thirty_days_ago = (datetime.now(timezone.utc) - timedelta(days=30)).isoformat()
     
     deals = supabase.table("deals").select("*").gte("created_at", thirty_days_ago).order('created_at', desc=True).execute().data
     breaks = supabase.table("active_breaks").select("*").execute().data
     break_logs = supabase.table("break_logs").select("*").gte("created_at", thirty_days_ago).execute().data
+    playbook = supabase.table("playbook").select("*").execute().data
     
-    # Get configuration and latest announcement
     targets_data = supabase.table("settings").select("value").eq("key", "system_targets").execute().data
     targets = targets_data[0]['value'] if targets_data else {"daily": 10000, "weekly": 50000, "monthly": 200000}
-    
     announcement = supabase.table("announcements").select("*").order('created_at', desc=True).limit(1).execute().data
     
     return {
-        "deals": deals, 
-        "active_breaks": breaks, 
-        "break_logs": break_logs, 
-        "targets": targets,
-        "announcement": announcement[0] if announcement else None
+        "deals": deals, "active_breaks": breaks, "break_logs": break_logs, 
+        "targets": targets, "announcement": announcement[0] if announcement else None,
+        "playbook": playbook
     }
 
 @app.post("/api/deal")
 async def add_deal(deal: DealModel):
     supabase.table("deals").insert(deal.model_dump()).execute()
     return {"status": "success"}
-
-@app.put("/api/admin/deal/{id}")
-async def update_deal(id: int, update: DealModel, password: str):
-    if password != "13012": raise HTTPException(status_code=403)
-    supabase.table("deals").update(update.model_dump()).eq("id", id).execute()
-    return {"status": "ok"}
 
 @app.delete("/api/admin/deal/{id}")
 async def delete_deal(id: int, password: str):
@@ -86,8 +77,7 @@ async def end_break(data: dict):
     supabase.table("active_breaks").delete().eq("user_id", data["user_id"]).execute()
     return {"status": "success"}
 
-# --- ADMIN ENDPOINTS ---
-
+# --- ADMIN API ---
 @app.post("/api/admin/targets")
 async def set_targets(data: dict):
     if data.get("password") != "13012": raise HTTPException(status_code=403)
@@ -98,6 +88,12 @@ async def set_targets(data: dict):
 async def send_broadcast(data: dict):
     if data.get("password") != "13012": raise HTTPException(status_code=403)
     supabase.table("announcements").insert({"message": data["message"]}).execute()
+    return {"status": "ok"}
+
+@app.post("/api/admin/playbook")
+async def add_script(data: dict):
+    if data.get("password") != "13012": raise HTTPException(status_code=403)
+    supabase.table("playbook").insert({"title": data["title"], "content": data["content"], "category": data.get("category", "General")}).execute()
     return {"status": "ok"}
 
 @app.post("/api/admin/danger/{action}")
