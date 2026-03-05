@@ -13,11 +13,9 @@ class DealModel(BaseModel):
     agent_name: str
     amount: float
     client_id: str
-    client_email: str
     deal_type: str
+    asset_class: str
     payment_method: str
-    asset_class: str = "Standard"
-    tag: str = "Standard"
     notes: str = ""
 
 @app.get("/", response_class=HTMLResponse)
@@ -27,13 +25,21 @@ async def home():
 @app.get("/api/dashboard")
 async def get_dashboard():
     window = (datetime.now(timezone.utc) - timedelta(days=30)).isoformat()
+    # Default config structure for the new Admin Panel
+    default_config = {
+        "daily": 25000, "weekly": 150000, 
+        "features": {"chat": True, "chart": True, "breaks": True},
+        "force_refresh": 0
+    }
+    
+    config_data = supabase.table("settings").select("value").eq("key", "system_config").execute().data
+    config = config_data[0]['value'] if config_data else default_config
+
     return {
         "deals": supabase.table("deals").select("*").gte("created_at", window).order('created_at', desc=True).execute().data,
         "active_breaks": supabase.table("active_breaks").select("*").execute().data,
-        "break_logs": supabase.table("break_logs").select("*").gte("created_at", window).execute().data,
-        "playbook": supabase.table("playbook").select("*").execute().data,
-        "chat": supabase.table("floor_chat").select("*").order('created_at', desc=True).limit(30).execute().data,
-        "targets": supabase.table("settings").select("value").eq("key", "system_targets").execute().data[0]['value'],
+        "chat": supabase.table("floor_chat").select("*").order('created_at', desc=True).limit(20).execute().data,
+        "config": config,
         "announcement": next(iter(supabase.table("announcements").select("*").order('created_at', desc=True).limit(1).execute().data), None)
     }
 
@@ -62,12 +68,6 @@ async def start_break(data: dict):
 
 @app.post("/api/break/end")
 async def end_break(data: dict):
-    active = supabase.table("active_breaks").select("*").eq("user_id", data["user_id"]).execute().data
-    if active:
-        b = active[0]
-        start_time = datetime.fromisoformat(b["start_time"].replace("Z", "+00:00"))
-        duration = int((datetime.now(timezone.utc) - start_time).total_seconds() / 60)
-        supabase.table("break_logs").insert({"user_id": str(b["user_id"]), "agent_name": b["agent_name"], "duration": max(0, duration), "break_type": b.get("break_type", "small")}).execute()
     supabase.table("active_breaks").delete().eq("user_id", data["user_id"]).execute()
     return {"status": "success"}
 
@@ -76,10 +76,22 @@ async def post_chat(data: dict):
     supabase.table("floor_chat").insert({"agent_name": data["agent_name"], "message": data["message"]}).execute()
     return {"status": "ok"}
 
-@app.post("/api/admin/system")
-async def update_system(data: dict):
+@app.post("/api/admin/config")
+async def update_config(data: dict):
     if data.get("password") != "13012": raise HTTPException(status_code=403)
-    supabase.table("settings").upsert({"key": "system_targets", "value": data["config"]}).execute()
+    supabase.table("settings").upsert({"key": "system_config", "value": data["config"]}).execute()
+    return {"status": "ok"}
+
+@app.post("/api/admin/danger/{action}")
+async def danger_zone(action: str, data: dict):
+    if data.get("password") != "13012": raise HTTPException(status_code=403)
+    if action == "clear_breaks":
+        supabase.table("active_breaks").delete().neq("user_id", 0).execute()
+    elif action == "wipe_today_deals":
+        today = datetime.now(timezone.utc).strftime('%Y-%m-%d')
+        supabase.table("deals").delete().gte("created_at", today).execute()
+    elif action == "wipe_chat":
+        supabase.table("floor_chat").delete().neq("id", 0).execute()
     return {"status": "ok"}
 
 if __name__ == "__main__":
