@@ -3,214 +3,223 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Lyman - Global Markets</title>
+    <title>Lyman GM - Terminal</title>
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://unpkg.com/lightweight-charts/dist/lightweight-charts.standalone.production.js"></script>
     <style>
-        :root { --bg: #020617; --accent: #3b82f6; --defcon: #10b981; }
-        body { background-color: var(--bg); color: #f8fafc; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; overflow-y: auto; -webkit-overflow-scrolling: touch; }
+        :root { --bg: #04080f; --panel: #0b1221; --accent: #2563eb; --up: #10b981; --down: #ef4444; --grid: rgba(255,255,255,0.03); }
         
-        .glass { background: rgba(15, 23, 42, 0.7); backdrop-filter: blur(16px); border: 1px solid rgba(255, 255, 255, 0.05); }
-        .glass-card { background: linear-gradient(145deg, rgba(30,41,59,0.9) 0%, rgba(2,6,23,0.95) 100%); backdrop-filter: blur(20px); border: 1px solid rgba(255,255,255,0.05); }
+        body { 
+            background-color: var(--bg); color: #e2e8f0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; 
+            background-image: linear-gradient(var(--grid) 1px, transparent 1px), linear-gradient(90deg, var(--grid) 1px, transparent 1px);
+            background-size: 20px 20px; overflow-y: auto; -webkit-overflow-scrolling: touch;
+        }
         
-        /* DEFCON Border System */
-        .defcon-border { transition: all 0.5s; box-shadow: 0 0 15px rgba(var(--defcon-rgb), 0.2), inset 0 0 10px rgba(var(--defcon-rgb), 0.1); border: 1px solid var(--defcon); }
+        .terminal-panel { background: var(--panel); border: 1px solid rgba(255,255,255,0.05); box-shadow: 0 4px 20px rgba(0,0,0,0.5); }
+        .glow-up { text-shadow: 0 0 10px rgba(16, 185, 129, 0.5); color: var(--up); }
+        .glow-accent { text-shadow: 0 0 15px rgba(37, 99, 235, 0.6); color: #60a5fa; }
         
-        /* Animations & Structure */
-        .page { display: none; padding: 16px; padding-bottom: 100px; min-height: 100vh; animation: fade 0.3s ease; }
+        input, select, textarea { background: #04080f !important; color: #fff !important; border: 1px solid rgba(255,255,255,0.1) !important; font-family: monospace; border-radius: 8px; padding: 12px; width: 100%; transition: 0.2s; }
+        input:focus, select:focus { border-color: var(--accent) !important; box-shadow: inset 0 0 5px rgba(37,99,235,0.3); }
+        
+        .page { display: none; padding: 12px; padding-bottom: 90px; min-height: 100vh; animation: fadeUp 0.3s ease-out; }
         .page.active { display: block; }
-        @keyframes fade { from { opacity: 0; } to { opacity: 1; } }
+        @keyframes fadeUp { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
         
-        input, select, textarea { background: rgba(0,0,0,0.5) !important; color: white !important; border: 1px solid rgba(255,255,255,0.1) !important; outline: none; border-radius: 12px; padding: 14px; width: 100%; transition: 0.2s; }
-        input:focus, select:focus, textarea:focus { border-color: var(--accent) !important; box-shadow: 0 0 0 2px rgba(59,130,246,0.2); }
-        
-        .nav-item { flex: 1; display: flex; flex-direction: column; align-items: center; opacity: 0.4; transition: 0.3s; padding: 10px 0; }
-        .nav-item.active { color: var(--accent); opacity: 1; }
+        /* Order Flow Grid */
+        .tape-row { display: grid; grid-template-columns: 1fr 2fr 2fr 1.5fr; gap: 8px; font-family: monospace; font-size: 11px; padding: 8px 4px; border-bottom: 1px solid rgba(255,255,255,0.03); align-items: center; }
+        .tape-row:hover { background: rgba(255,255,255,0.02); cursor: pointer; }
+        .flash-new { animation: flashGreen 1s ease-out; }
+        @keyframes flashGreen { 0% { background: rgba(16, 185, 129, 0.3); } 100% { background: transparent; } }
+
+        .nav-item { flex: 1; display: flex; flex-direction: column; align-items: center; opacity: 0.4; transition: 0.2s; padding: 10px 0; border-top: 2px solid transparent; }
+        .nav-item.active { color: #60a5fa; opacity: 1; border-top-color: #3b82f6; background: linear-gradient(180deg, rgba(59,130,246,0.1) 0%, transparent 100%); }
         .no-scrollbar::-webkit-scrollbar { display: none; }
-        
-        /* Order Book Styles */
-        .book-row { display: grid; grid-template-columns: 2fr 1fr 1.5fr; gap: 8px; font-family: monospace; font-size: 10px; padding: 6px 0; border-bottom: 1px solid rgba(255,255,255,0.02); }
+        .btn-execute { background: linear-gradient(135deg, #1d4ed8, #2563eb); border: 1px solid #60a5fa; box-shadow: 0 0 20px rgba(37, 99, 235, 0.4); }
+        .btn-execute:active { transform: scale(0.98); box-shadow: 0 0 10px rgba(37, 99, 235, 0.4); }
     </style>
 </head>
 <body>
 
-    <header class="glass sticky top-0 z-40 px-4 py-3 flex justify-between items-center border-b" id="top-header">
-        <div>
-            <h1 class="font-black text-xl tracking-tighter">LYMAN <span class="text-blue-500 font-light">GM</span></h1>
-            <div class="flex items-center gap-2 mt-0.5">
-                <span id="conn-status" class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-                <span id="defcon-status" class="text-[9px] font-bold uppercase tracking-widest text-emerald-400">DEFCON: NORMAL</span>
+    <header class="terminal-panel sticky top-0 z-40 px-3 py-2 border-b flex justify-between items-center">
+        <div class="flex items-center gap-3">
+            <h1 class="font-black text-lg tracking-tighter">LYMAN<span class="text-blue-500 font-light ml-1">TRM</span></h1>
+            <div class="h-4 w-[1px] bg-white/20"></div>
+            <div class="flex items-center gap-1.5">
+                <div id="sync-dot" class="w-1.5 h-1.5 rounded-full bg-emerald-500"></div>
+                <span id="server-time" class="text-[9px] font-mono opacity-50">00:00:00 UTC</span>
             </div>
         </div>
-        <button onclick="openAdmin()" class="bg-red-500/10 border border-red-500/20 text-red-500 px-3 py-1.5 rounded-lg text-[10px] font-bold active:scale-95">GOD MODE</button>
+        <button onclick="openAdmin()" class="bg-white/5 border border-white/10 px-3 py-1.5 rounded text-[9px] font-bold font-mono tracking-widest hover:bg-white/10 transition">SYS_CTRL</button>
     </header>
 
-    <div id="banner" class="hidden bg-amber-500 text-black text-[10px] font-black uppercase tracking-widest text-center py-2"><span id="banner-txt" class="animate-pulse"></span></div>
+    <div class="w-full overflow-hidden bg-black/50 border-b border-white/5 py-1 flex items-center">
+        <span class="bg-blue-600 text-white text-[8px] font-black px-1.5 py-0.5 mx-2 rounded uppercase z-10 absolute">IDX</span>
+        <div class="whitespace-nowrap inline-block pl-12 text-[10px] font-mono opacity-80" style="animation: ticker 20s linear infinite;">
+            <span class="mr-6">SPX <span class="text-red-400">5120.2 ▼</span></span>
+            <span class="mr-6">BTC <span class="text-emerald-400">92450.0 ▲</span></span>
+            <span class="mr-6">ETH <span class="text-red-400">3120.5 ▼</span></span>
+            <span class="mr-6">XAU <span class="text-emerald-400">2340.1 ▲</span></span>
+        </div>
+    </div>
 
-    <main id="tab-floor" class="page active">
-        <div id="floor-dash" class="glass-card p-6 rounded-[2rem] mb-4 defcon-border relative overflow-hidden">
-            <p class="text-[10px] font-bold opacity-60 uppercase tracking-widest mb-1">Live Volume</p>
-            <h2 id="h-total" class="text-4xl font-black mb-4">$0</h2>
-            
-            <div class="bg-black/40 rounded-full h-2 mb-2">
-                <div id="h-bar" class="bg-blue-500 h-full rounded-full transition-all duration-1000 w-0"></div>
+    <main id="tab-term" class="page active">
+        <div class="terminal-panel rounded-xl p-1 mb-3 h-56 relative border border-white/10">
+            <div class="absolute top-2 left-3 z-10 flex justify-between w-full pr-6">
+                <span class="text-[9px] font-bold opacity-50 uppercase tracking-widest">Floor Momentum (Vol)</span>
+                <span class="text-[9px] font-mono text-emerald-400">LIVE</span>
             </div>
-            <div class="flex justify-between items-center">
-                <p id="h-target" class="text-[10px] opacity-50 font-mono">Target: $0</p>
-                <p id="h-pct" class="text-xs font-black text-blue-400">0%</p>
+            <div id="tv-chart" class="w-full h-full rounded-lg overflow-hidden"></div>
+        </div>
+
+        <div class="grid grid-cols-2 gap-2 mb-4">
+            <div class="terminal-panel p-3 rounded-xl border border-white/5">
+                <p class="text-[9px] font-bold opacity-50 uppercase tracking-widest mb-1">Session Volume</p>
+                <h2 id="h-total" class="text-2xl font-black font-mono glow-accent">$0</h2>
+                <div class="w-full bg-black/50 h-1 mt-2 rounded overflow-hidden"><div id="h-bar" class="bg-blue-500 h-full"></div></div>
+            </div>
+            <div class="terminal-panel p-3 rounded-xl border border-white/5">
+                <p class="text-[9px] font-bold opacity-50 uppercase tracking-widest mb-1">Est. Comm (5%)</p>
+                <h2 id="h-comm" class="text-2xl font-black font-mono glow-up">$0</h2>
+                <p id="h-target" class="text-[9px] font-mono opacity-40 mt-1">Target: $0</p>
             </div>
         </div>
 
-        <div class="glass-card p-4 rounded-3xl mb-6">
-            <div class="flex justify-between items-center mb-3">
-                <h3 class="text-xs font-bold opacity-50 uppercase tracking-widest">Live Order Book</h3>
-                <span class="text-[9px] font-mono text-emerald-400 animate-pulse">● SYNCED</span>
+        <div class="terminal-panel rounded-xl p-3 border border-white/5">
+            <h3 class="text-[10px] font-bold opacity-50 uppercase tracking-widest mb-2 border-b border-white/5 pb-2">Live Order Flow</h3>
+            <div class="grid grid-cols-[1fr_2fr_2fr_1.5fr] text-[8px] font-bold opacity-40 uppercase mb-1 px-1">
+                <span>Time</span><span>Agent</span><span>Asset/ID</span><span class="text-right">Size ($)</span>
             </div>
-            <div class="bg-black/50 rounded-xl p-3">
-                <div class="grid grid-cols-3 text-[9px] font-bold opacity-50 uppercase mb-2 px-1"><span>Agent</span><span>Size</span><span class="text-right">Asset</span></div>
-                <div id="order-book" class="space-y-1 max-h-48 overflow-y-auto no-scrollbar"></div>
-            </div>
-        </div>
-
-        <h3 class="text-xs font-bold opacity-50 uppercase tracking-widest mb-3 px-2">Pre-IPO Allocations</h3>
-        <div id="allocations-list" class="space-y-3 mb-6"></div>
-    </main>
-
-    <main id="tab-data" class="page">
-        <div class="glass-card p-4 rounded-3xl mb-4 flex justify-center h-48 relative">
-            <h3 class="absolute top-4 left-4 text-[10px] font-bold opacity-50 uppercase">Asset Distribution</h3>
-            <canvas id="assetChart"></canvas>
-        </div>
-
-        <div class="grid grid-cols-2 gap-3 mb-6">
-            <div class="glass-card p-4 rounded-2xl"><p class="text-[10px] opacity-50 font-bold uppercase">Total Deals</p><p id="s-deals" class="text-xl font-black text-blue-400">0</p></div>
-            <div class="glass-card p-4 rounded-2xl"><p class="text-[10px] opacity-50 font-bold uppercase">Win Rate</p><p id="s-winrate" class="text-xl font-black text-emerald-400">0%</p></div>
-        </div>
-
-        <h3 class="text-xs font-bold opacity-50 uppercase tracking-widest mb-3 px-2">Leaderboard</h3>
-        <div id="stats-container" class="space-y-2"></div>
-    </main>
-
-    <main id="tab-shift" class="page">
-        <div class="glass-card rounded-3xl p-5 mb-6">
-            <div class="flex justify-between items-center mb-4">
-                <h3 class="text-xs font-bold opacity-50 uppercase tracking-widest">Break Terminal</h3>
-                <span id="team-count" class="text-xs font-black text-emerald-400">0 Online</span>
-            </div>
-            <div class="grid grid-cols-2 gap-3 mb-4">
-                <button onclick="takeBreak('big')" class="bg-black/30 border border-blue-500/30 p-4 rounded-2xl text-xs font-bold active:bg-blue-900/20">🍽️ Big (45m)</button>
-                <button onclick="takeBreak('small')" class="bg-black/30 border border-orange-500/30 p-4 rounded-2xl text-xs font-bold active:bg-orange-900/20">☕ Small (45m)</button>
-            </div>
-            <div id="b-live" class="space-y-2"></div>
-        </div>
-
-        <h3 class="text-xs font-bold opacity-50 uppercase tracking-widest mb-3 px-2">The Vault (Docs)</h3>
-        <div class="space-y-3">
-            <div class="glass-card p-4 rounded-2xl flex justify-between items-center">
-                <div><p class="font-bold text-sm">US Bank Wire Instructions</p><p class="text-[10px] opacity-50">Lyman Global Markets LLC</p></div>
-                <button onclick="copyToClip('US Wire Data...')" class="bg-white/10 px-3 py-1.5 rounded-lg text-[9px] font-bold">COPY</button>
-            </div>
-            <div class="glass-card p-4 rounded-2xl flex justify-between items-center">
-                <div><p class="font-bold text-sm">Crypto Deposit Addresses</p><p class="text-[10px] opacity-50">ERC20 / TRC20 / BTC</p></div>
-                <button onclick="copyToClip('USDT TRC20: T...') " class="bg-white/10 px-3 py-1.5 rounded-lg text-[9px] font-bold">COPY</button>
-            </div>
+            <div id="order-tape" class="max-h-64 overflow-y-auto no-scrollbar"></div>
         </div>
     </main>
 
-    <nav class="glass fixed bottom-0 w-full flex justify-around pb-8 pt-3 px-2 z-40">
-        <button onclick="nav('floor')" id="n-floor" class="nav-item active"><span class="text-2xl mb-1">📊</span><span class="text-[9px] font-bold tracking-wider">FLOOR</span></button>
-        <button onclick="nav('data')" id="n-data" class="nav-item"><span class="text-2xl mb-1">📈</span><span class="text-[9px] font-bold tracking-wider">DATA</span></button>
-        <button onclick="nav('shift')" id="n-shift" class="nav-item"><span class="text-2xl mb-1">⚡</span><span class="text-[9px] font-bold tracking-wider">HUB</span></button>
+    <main id="tab-port" class="page">
+        <h3 class="text-[10px] font-bold opacity-50 uppercase tracking-widest mb-2 px-1">Institutional Liquidity Pools</h3>
+        <div id="alloc-list" class="space-y-2 mb-5"></div>
+
+        <h3 class="text-[10px] font-bold opacity-50 uppercase tracking-widest mb-2 px-1 mt-6">Agent P&L (Session)</h3>
+        <div class="terminal-panel rounded-xl p-2 border border-white/5">
+            <div class="grid grid-cols-[1fr_2fr_1fr_1fr] text-[8px] font-bold opacity-40 uppercase mb-2 px-2 border-b border-white/5 pb-1">
+                <span>Rank</span><span>Agent</span><span class="text-right">Deals</span><span class="text-right">Volume</span>
+            </div>
+            <div id="leaderboard" class="space-y-1"></div>
+        </div>
+    </main>
+
+    <main id="tab-ops" class="page">
+        <div class="terminal-panel rounded-xl p-4 mb-4 border border-white/5 flex justify-between items-center">
+            <h3 class="text-[10px] font-bold opacity-50 uppercase tracking-widest">Active Personnel</h3>
+            <span id="team-count" class="text-sm font-black font-mono glow-up">0</span>
+        </div>
+
+        <div class="grid grid-cols-2 gap-2 mb-4">
+            <button onclick="takeBreak('big')" class="terminal-panel p-4 rounded-xl text-xs font-bold border border-blue-500/30 active:bg-blue-900/20 transition">🍽️ Lunch (45m)</button>
+            <button onclick="takeBreak('small')" class="terminal-panel p-4 rounded-xl text-xs font-bold border border-orange-500/30 active:bg-orange-900/20 transition">☕ Break (Pool)</button>
+        </div>
+
+        <h3 class="text-[10px] font-bold opacity-50 uppercase tracking-widest mb-2 px-1">Active Timers</h3>
+        <div id="b-live" class="space-y-2"></div>
+    </main>
+
+    <nav class="terminal-panel fixed bottom-0 w-full flex justify-around pb-6 pt-1 z-40 border-t border-white/10">
+        <button onclick="nav('term')" id="n-term" class="nav-item active"><span class="text-lg mb-0.5">📟</span><span class="text-[8px] font-bold tracking-widest">TERMINAL</span></button>
+        <button onclick="nav('port')" id="n-port" class="nav-item"><span class="text-lg mb-0.5">📊</span><span class="text-[8px] font-bold tracking-widest">PORTFOLIO</span></button>
+        <button onclick="nav('ops')" id="n-ops" class="nav-item"><span class="text-lg mb-0.5">⚡</span><span class="text-[8px] font-bold tracking-widest">OPERATIONS</span></button>
     </nav>
 
-    <button onclick="openModal('m-deal')" class="fixed bottom-28 right-5 w-16 h-16 rounded-full bg-blue-600 shadow-[0_0_25px_rgba(37,99,235,0.6)] text-3xl font-black flex items-center justify-center z-40 text-white transition-transform active:scale-90 border border-blue-400/30">
-        +
+    <button onclick="openModal('m-deal')" class="btn-execute fixed bottom-24 right-4 px-6 py-4 rounded-full text-white font-black text-sm tracking-widest z-40 flex items-center gap-2">
+        <span>EXECUTE</span><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M12 4v16m8-8H4"></path></svg>
     </button>
 
-    <div id="m-deal" class="fixed inset-0 bg-slate-950/95 backdrop-blur-xl z-[100] hidden flex flex-col justify-end">
-        <div class="glass-card rounded-t-[2.5rem] p-6 pb-12 w-full border-t border-blue-500/30">
-            <div class="flex justify-between items-center mb-6"><h2 class="text-2xl font-black tracking-tighter">Execute Trade</h2><button onclick="closeModal('m-deal')" class="text-2xl opacity-50 p-2">✕</button></div>
-            <div class="space-y-4">
-                <input id="f-cid" type="text" placeholder="Client ID / Name" class="text-lg font-bold bg-black/40">
-                <input id="f-amt" type="number" placeholder="Amount ($)" class="text-3xl font-black text-blue-400 text-center py-5 bg-black/60 border-blue-500/50">
+    <div id="m-deal" class="fixed inset-0 bg-black/90 backdrop-blur-md z-[100] hidden flex items-center justify-center p-4">
+        <div class="terminal-panel rounded-2xl p-5 w-full max-w-md border border-blue-500/40 relative shadow-[0_0_30px_rgba(37,99,235,0.2)]">
+            <button onclick="closeModal('m-deal')" class="absolute top-4 right-4 text-white/50 hover:text-white">✕</button>
+            <h2 class="text-sm font-black uppercase tracking-widest mb-4 text-blue-400 border-b border-white/10 pb-2">Order Ticket</h2>
+            
+            <div class="space-y-3">
+                <div><label class="text-[8px] uppercase font-bold opacity-50">Client ID / Account</label><input id="f-cid" type="text" class="text-sm"></div>
                 
-                <div class="grid grid-cols-2 gap-3">
-                    <select id="f-type" class="font-bold"><option>FTD</option><option>Deposit</option></select>
-                    <select id="f-class" class="font-bold text-xs"><option>Equities</option><option>Crypto</option><option>SpaceX Pre-IPO</option><option>AI Data Centers</option></select>
+                <div>
+                    <label class="text-[8px] uppercase font-bold opacity-50">Size ($)</label>
+                    <input id="f-amt" type="number" class="text-2xl font-black font-mono text-center text-white glow-accent py-3">
+                    <div class="grid grid-cols-4 gap-1 mt-2">
+                        <button onclick="addAmt(5000)" class="bg-white/5 py-1.5 rounded text-[10px] font-mono font-bold hover:bg-white/10">+5k</button>
+                        <button onclick="addAmt(10000)" class="bg-white/5 py-1.5 rounded text-[10px] font-mono font-bold hover:bg-white/10 text-emerald-400">+10k</button>
+                        <button onclick="addAmt(32000)" class="bg-white/5 py-1.5 rounded text-[10px] font-mono font-bold hover:bg-white/10 text-amber-400">+32k (IPO)</button>
+                        <button onclick="addAmt(150000)" class="bg-white/5 py-1.5 rounded text-[10px] font-mono font-bold hover:bg-white/10 text-purple-400">+150k (AI)</button>
+                    </div>
                 </div>
-                <select id="f-method" class="font-bold text-xs"><option>Crypto Transfer</option><option>Bank Wire</option><option>Credit Card</option></select>
-                <textarea id="f-notes" placeholder="TxID / Notes (Optional)" class="h-16 text-sm"></textarea>
+
+                <div class="grid grid-cols-2 gap-2">
+                    <div><label class="text-[8px] uppercase font-bold opacity-50">Asset Class</label>
+                    <select id="f-class" class="text-xs font-bold"><option value="Equities">Equities</option><option value="Crypto">Crypto</option><option value="SpaceX Pre-IPO">SpaceX Pre-IPO</option><option value="AI Data Centers">AI Data Centers</option></select></div>
+                    <div><label class="text-[8px] uppercase font-bold opacity-50">Type</label>
+                    <select id="f-type" class="text-xs font-bold"><option>FTD</option><option>Deposit</option></select></div>
+                </div>
                 
-                <button onclick="submitDeal()" id="btn-submit" class="w-full bg-blue-600 py-5 rounded-2xl font-black text-white shadow-lg text-xl active:scale-95 transition">CONFIRM EXECUTION</button>
+                <button onclick="submitDeal()" id="btn-submit" class="w-full btn-execute py-4 rounded-xl font-black text-white text-sm tracking-widest mt-4">SUBMIT ORDER</button>
             </div>
         </div>
     </div>
 
-    <div id="m-admin" class="fixed inset-0 bg-slate-950/98 backdrop-blur-2xl z-[200] hidden flex flex-col">
-        <div class="pt-12 pb-4 px-6 border-b border-white/10 flex justify-between items-center bg-black/20">
-            <h2 class="text-2xl font-black tracking-tighter text-red-500">🛡️ GOD MODE</h2>
-            <button onclick="closeModal('m-admin')" class="bg-white/10 px-4 py-2 rounded-xl text-xs font-bold active:scale-95">CLOSE</button>
+    <div id="m-admin" class="fixed inset-0 bg-black/95 backdrop-blur-xl z-[200] hidden flex flex-col">
+        <div class="p-4 border-b border-white/10 flex justify-between items-center bg-[#0b1221]">
+            <h2 class="text-sm font-black tracking-widest text-red-500 font-mono">SYS_CTRL // ROOT</h2>
+            <button onclick="closeModal('m-admin')" class="bg-white/10 px-3 py-1.5 rounded text-[10px] font-bold">CLOSE</button>
         </div>
         
-        <div class="flex-1 overflow-y-auto p-6 space-y-6">
-            <div class="glass-card p-5 rounded-3xl">
-                <h3 class="text-xs font-bold opacity-50 uppercase tracking-widest mb-4">Floor Operations</h3>
-                <div class="space-y-3 mb-4">
-                    <div class="flex items-center gap-4"><label class="w-16 text-xs font-bold opacity-70">Daily Goal</label><input id="a-t-daily" type="number" class="flex-1 text-right font-mono font-bold"></div>
-                </div>
-                <h4 class="text-[10px] font-bold opacity-50 uppercase mb-2">DEFCON Level</h4>
-                <div class="flex gap-2 mb-4">
-                    <button onclick="setDefcon('green')" class="flex-1 bg-emerald-900/40 border border-emerald-500 text-emerald-400 py-2 rounded-xl text-xs font-bold">NORMAL</button>
-                    <button onclick="setDefcon('yellow')" class="flex-1 bg-amber-900/40 border border-amber-500 text-amber-400 py-2 rounded-xl text-xs font-bold">PUSH</button>
-                    <button onclick="setDefcon('red')" class="flex-1 bg-red-900/40 border border-red-500 text-red-400 py-2 rounded-xl text-xs font-bold">PWR HOUR</button>
-                </div>
-                <button onclick="saveAdmin()" class="w-full bg-blue-600 py-3 rounded-xl font-bold">SAVE STATE</button>
+        <div class="flex-1 overflow-y-auto p-4 space-y-4">
+            <div class="terminal-panel p-4 rounded-xl border border-white/5">
+                <h3 class="text-[10px] font-bold opacity-50 uppercase tracking-widest mb-3 border-b border-white/5 pb-1">Target Parameters</h3>
+                <div class="flex items-center gap-3"><label class="text-xs font-mono opacity-70 w-20">Daily_Vol</label><input id="a-t-daily" type="number" class="text-right"></div>
+                <button onclick="saveAdmin()" class="w-full bg-blue-600/20 text-blue-400 border border-blue-500/30 py-2 rounded mt-3 text-xs font-bold">COMMIT CHANGES</button>
             </div>
 
-            <div class="glass-card p-5 rounded-3xl">
-                <h3 class="text-xs font-bold opacity-50 uppercase tracking-widest mb-4">Ledger Control</h3>
-                <input type="text" id="a-search" oninput="renderAdminLedger()" placeholder="Search to Edit/Void..." class="mb-3 text-sm">
-                <div id="a-ledger-list" class="space-y-2 max-h-40 overflow-y-auto bg-black/30 p-2 rounded-xl mb-3"></div>
-                <button onclick="ghostDeal()" class="w-full bg-purple-600/20 text-purple-400 border border-purple-500/30 py-3 rounded-xl font-bold text-xs">👻 GHOST LOG DEAL</button>
+            <div class="terminal-panel p-4 rounded-xl border border-white/5">
+                <h3 class="text-[10px] font-bold opacity-50 uppercase tracking-widest mb-3 border-b border-white/5 pb-1">Ledger Override</h3>
+                <input type="text" id="a-search" oninput="renderAdminLedger()" placeholder="Search Hash / Agent..." class="mb-2 text-xs">
+                <div id="a-ledger-list" class="max-h-40 overflow-y-auto bg-black/50 p-1 rounded space-y-1"></div>
             </div>
 
-            <div class="border border-red-500/30 bg-red-900/10 p-5 rounded-3xl space-y-4">
-                <h3 class="font-black text-red-500 uppercase tracking-widest mb-2">Danger Zone</h3>
-                <button onclick="executeDanger('clear_breaks')" class="w-full bg-red-500/20 text-red-400 py-3 rounded-xl font-bold border border-red-500/30">CLEAR ACTIVE BREAKS</button>
+            <div class="border border-red-500/30 bg-red-900/10 p-4 rounded-xl">
+                <h3 class="font-black text-red-500 uppercase tracking-widest mb-2 text-[10px]">Execute Master Override</h3>
+                <button onclick="executeDanger('clear_breaks')" class="w-full bg-red-500/20 text-red-400 py-2 rounded font-bold border border-red-500/30 text-xs">KILL ALL TIMERS</button>
             </div>
         </div>
     </div>
 
-    <div id="m-edit" class="fixed inset-0 bg-slate-950/98 backdrop-blur-xl z-[300] hidden flex flex-col justify-end">
-        <div class="glass-card rounded-t-[2.5rem] p-6 pb-12 w-full border-t border-amber-500/50">
-            <div class="flex justify-between items-center mb-6"><h2 class="text-xl font-black text-amber-500">Edit Deal</h2><button onclick="closeModal('m-edit')" class="text-xl opacity-50 p-2">✕</button></div>
-            <div class="space-y-4">
-                <input id="e-amt" type="number" class="text-xl font-black text-amber-400">
-                <input id="e-cid" type="text" class="font-bold">
-                <div class="grid grid-cols-2 gap-3 mt-4">
-                    <button onclick="updateDeal()" class="bg-amber-600 py-4 rounded-xl font-black text-white shadow-lg">UPDATE</button>
-                    <button onclick="deleteDeal()" class="bg-red-900/40 text-red-500 border border-red-500/30 py-4 rounded-xl font-bold">VOID DEAL</button>
+    <div id="m-edit" class="fixed inset-0 bg-black/95 backdrop-blur-md z-[300] hidden flex items-center justify-center p-4">
+        <div class="terminal-panel rounded-2xl p-5 w-full max-w-md border border-amber-500/40">
+            <h2 class="text-sm font-black uppercase tracking-widest mb-4 text-amber-500 border-b border-white/10 pb-2">Override Order</h2>
+            <div class="space-y-3">
+                <input id="e-amt" type="number" class="text-2xl font-black font-mono text-amber-400 text-center">
+                <input id="e-cid" type="text" class="text-sm font-mono">
+                <div class="grid grid-cols-2 gap-2 mt-4">
+                    <button onclick="updateDeal()" class="bg-amber-600/20 text-amber-500 border border-amber-500/50 py-3 rounded font-bold text-xs">UPDATE</button>
+                    <button onclick="deleteDeal()" class="bg-red-900/40 text-red-500 border border-red-500/30 py-3 rounded font-bold text-xs">VOID</button>
                 </div>
+                <button onclick="closeModal('m-edit')" class="w-full bg-white/5 py-2 rounded mt-2 text-xs opacity-50">CANCEL</button>
             </div>
         </div>
     </div>
 
     <script>
         const tg = window.Telegram.WebApp; tg.expand();
-        let cache = { deals: [], active_breaks: [], config: {daily:25000, defcon:"green", allocations:{"SpaceX Pre-IPO":500000, "AI Data Centers":150000}, force_refresh:0}, announcement: null };
-        let adminPass = ''; let isUIBlocked = false; let currentEditId = null; let chartInst = null; let myRefresh = 0;
+        let cache = { deals: [], active_breaks: [], config: {daily:50000, allocations:{"SpaceX Pre-IPO":500000, "AI Data Centers":150000}, force_refresh:0}, server_time: "" };
+        let adminPass = ''; let isUIBlocked = false; let tvSeries = null; let currentEditId = null; let lastDealCount = 0;
 
+        // Initialization
         window.onload = () => {
             initChart();
-            setInterval(refreshData, 5000); // Polls data in background
-            refreshData();
+            setInterval(fetchData, 4000); // 4s Background Poll
+            setInterval(updateLocalClock, 1000);
+            fetchData();
         };
 
-        // --- Bulletproof State Management ---
-        // If isUIBlocked is true (modal open) or user is focused on an input, we DO NOT re-render the DOM.
-        // This stops the typing glitches completely.
-        async function refreshData() {
+        // --- Core Data Engine ---
+        async function fetchData() {
             try {
                 const res = await fetch('/api/dashboard'); 
                 const newData = await res.json();
@@ -218,150 +227,152 @@
                 if(newData.config.force_refresh > cache.config.force_refresh) location.reload();
                 cache = newData;
 
-                applyDefcon(cache.config.defcon);
+                // Sync Dot Animation
+                const dot = document.getElementById('sync-dot');
+                dot.classList.remove('bg-emerald-500'); dot.classList.add('bg-white');
+                setTimeout(() => { dot.classList.remove('bg-white'); dot.classList.add('bg-emerald-500'); }, 200);
 
-                const activeTag = document.activeElement ? document.activeElement.tagName.toLowerCase() : '';
-                if(isUIBlocked || activeTag === 'input' || activeTag === 'textarea' || activeTag === 'select') return;
+                // Check if user is typing or in modal. If so, SKIP rendering to prevent bugs.
+                const tag = document.activeElement ? document.activeElement.tagName.toLowerCase() : '';
+                if(isUIBlocked || tag === 'input' || tag === 'textarea' || tag === 'select') return;
 
                 renderViews();
-            } catch(e) { document.getElementById('conn-status').classList.replace('bg-emerald-500', 'bg-red-500'); }
+            } catch(e) { document.getElementById('sync-dot').classList.replace('bg-emerald-500', 'bg-red-500'); }
         }
 
-        function applyDefcon(level) {
-            let color = '16, 185, 129'; let hex = '#10b981'; let txt = 'NORMAL';
-            if(level === 'yellow') { color = '245, 158, 11'; hex = '#f59e0b'; txt = 'PUSH'; }
-            if(level === 'red') { color = '239, 68, 68'; hex = '#ef4444'; txt = 'POWER HOUR'; }
-            
-            document.documentElement.style.setProperty('--defcon-rgb', color);
-            document.documentElement.style.setProperty('--defcon', hex);
-            document.getElementById('top-header').style.borderBottomColor = hex;
-            document.getElementById('defcon-status').innerText = `DEFCON: ${txt}`;
-            document.getElementById('defcon-status').style.color = hex;
-        }
-
+        // --- Granular Render Logic (Prevents whole-page flashes) ---
         function renderViews() {
-            document.getElementById('conn-status').classList.replace('bg-red-500', 'bg-emerald-500');
-            
             const today = new Date().toISOString().split('T')[0];
-            const dailyDeals = cache.deals.filter(d => d.created_at.startsWith(today));
-            const total = dailyDeals.reduce((s, d) => s + d.amount, 0);
+            const daily = cache.deals.filter(d => d.created_at.startsWith(today));
+            const total = daily.reduce((s, d) => s + d.amount, 0);
+            const myTotal = daily.filter(d => d.agent_name === (tg.initDataUnsafe.user?.first_name || "Agent")).reduce((s,d)=>s+d.amount, 0);
 
-            // 1. Floor Render
+            // Update Top Level Numbers directly
             document.getElementById('h-total').innerText = `$${total.toLocaleString()}`;
             document.getElementById('h-target').innerText = `Target: $${cache.config.daily.toLocaleString()}`;
-            const pct = Math.min((total/cache.config.daily)*100, 100);
-            document.getElementById('h-bar').style.width = `${pct}%`;
-            document.getElementById('h-pct').innerText = `${Math.floor(pct)}%`;
+            document.getElementById('h-comm').innerText = `$${Math.floor(myTotal * 0.05).toLocaleString()}`;
+            document.getElementById('h-bar').style.width = `${Math.min((total/cache.config.daily)*100, 100)}%`;
 
-            // Order Book
-            document.getElementById('order-book').innerHTML = dailyDeals.map(d => {
-                const isFtd = d.deal_type === 'FTD';
-                const color = isFtd ? 'text-emerald-400' : 'text-blue-400';
-                return `<div class="book-row">
-                    <span class="truncate">${d.agent_name}</span>
-                    <span class="${color} text-right">$${d.amount}</span>
-                    <span class="text-right opacity-60 truncate">${d.asset_class}</span>
-                </div>`;
-            }).join('') || '<p class="text-[9px] opacity-30 text-center py-4">Book Empty</p>';
+            // Update Order Flow Tape (Only re-render if deal count changed to save DOM performance)
+            if (daily.length !== lastDealCount) {
+                document.getElementById('order-tape').innerHTML = daily.map((d, i) => {
+                    const time = new Date(d.created_at).toLocaleTimeString('en-US', {hour12:false, hour:'2-digit', minute:'2-digit', second:'2-digit'});
+                    const isNew = i === 0 && daily.length > lastDealCount; // Highlight newest deal
+                    const color = d.deal_type === 'FTD' ? 'text-emerald-400' : 'text-blue-400';
+                    return `<div class="tape-row ${isNew ? 'flash-new' : ''}">
+                        <span class="opacity-50">${time}</span>
+                        <span class="truncate">${d.agent_name}</span>
+                        <span class="truncate opacity-70">${d.asset_class}</span>
+                        <span class="text-right font-black ${color}">$${d.amount.toLocaleString()}</span>
+                    </div>`;
+                }).join('') || '<p class="text-[9px] opacity-30 text-center py-4">Awaiting Order Flow</p>';
+                lastDealCount = daily.length;
+                updateChartData(daily);
+            }
 
-            // Allocations (SpaceX & AI)
+            // Allocations (Liquidity)
             const allocs = cache.config.allocations || {};
             let allocHtml = '';
             for (const [asset, cap] of Object.entries(allocs)) {
                 const used = cache.deals.filter(d => d.asset_class === asset).reduce((s,d)=>s+d.amount, 0);
                 const aPct = Math.min((used/cap)*100, 100);
                 allocHtml += `
-                <div class="glass-card p-4 rounded-2xl mb-2">
-                    <div class="flex justify-between items-center mb-2"><span class="text-xs font-bold">${asset}</span><span class="text-[10px] font-mono text-amber-400">$${used.toLocaleString()} / $${cap.toLocaleString()}</span></div>
-                    <div class="bg-black/40 rounded-full h-1.5"><div class="bg-gradient-to-r from-amber-500 to-orange-500 h-full rounded-full transition-all" style="width:${aPct}%"></div></div>
+                <div class="terminal-panel p-3 rounded-xl border border-white/5">
+                    <div class="flex justify-between items-center mb-1.5"><span class="text-[10px] font-bold opacity-80">${asset}</span><span class="text-[9px] font-mono opacity-60">$${used.toLocaleString()} / $${cap.toLocaleString()}</span></div>
+                    <div class="bg-black/50 rounded h-1.5 overflow-hidden"><div class="bg-blue-500 h-full transition-all" style="width:${aPct}%"></div></div>
                 </div>`;
             }
-            document.getElementById('allocations-list').innerHTML = allocHtml;
+            document.getElementById('alloc-list').innerHTML = allocHtml;
 
-            // 2. Data Render
-            document.getElementById('s-deals').innerText = dailyDeals.length;
-            const ftds = dailyDeals.filter(d => d.deal_type === 'FTD').length;
-            document.getElementById('s-winrate').innerText = dailyDeals.length ? `${Math.round((ftds/dailyDeals.length)*100)}%` : '0%';
-
-            const agents = {}; dailyDeals.forEach(d => agents[d.agent_name] = (agents[d.agent_name] || 0) + d.amount);
-            document.getElementById('stats-container').innerHTML = Object.entries(agents).sort((a,b)=>b[1]-a[1]).map(([n, amt], i) => `
-                <div class="glass-card p-4 rounded-2xl flex justify-between items-center">
-                    <div class="flex items-center gap-3"><span class="text-lg w-6 text-center">${i===0?'🥇':(i===1?'🥈':'🥉')}</span><span class="text-sm font-bold">${n}</span></div>
-                    <span class="font-black text-sm text-blue-400">$${amt.toLocaleString()}</span>
+            // Leaderboard
+            const agents = {}; daily.forEach(d => { agents[d.agent_name] = agents[d.agent_name] || {vol:0, count:0}; agents[d.agent_name].vol += d.amount; agents[d.agent_name].count++; });
+            document.getElementById('leaderboard').innerHTML = Object.entries(agents).sort((a,b)=>b[1].vol-a[1].vol).map(([n, d], i) => `
+                <div class="grid grid-cols-[1fr_2fr_1fr_1fr] text-[10px] font-mono py-1.5 border-b border-white/5 items-center">
+                    <span class="opacity-50">#${i+1}</span><span class="font-bold truncate">${n}</span><span class="text-right opacity-70">${d.count}</span><span class="text-right font-black glow-up">$${d.vol.toLocaleString()}</span>
                 </div>`).join('');
-            
-            updateChartData(dailyDeals);
 
-            // 3. Shifts Render
-            const activeSet = new Set([...dailyDeals.map(d=>d.agent_name), ...cache.active_breaks.map(b=>b.agent_name)]);
-            document.getElementById('team-count').innerText = `${activeSet.size} Online`;
+            // Breaks
+            const activeSet = new Set([...daily.map(d=>d.agent_name), ...cache.active_breaks.map(b=>b.agent_name)]);
+            document.getElementById('team-count').innerText = activeSet.size;
             document.getElementById('b-live').innerHTML = cache.active_breaks.map(b => `
-                <div class="flex justify-between items-center p-3 glass-card rounded-2xl border border-white/5">
-                    <div><span class="text-sm font-bold block">${b.agent_name}</span><span class="text-[9px] text-orange-400 uppercase font-bold">${b.break_type}</span></div>
-                    <div class="flex items-center gap-3"><span class="timer font-mono text-sm font-bold" data-start="${new Date(b.start_time).getTime()}"></span>
-                    <button onclick="endBreak('${b.user_id}')" class="text-[10px] bg-red-600 px-3 py-1.5 rounded-lg font-bold">STOP</button></div>
-                </div>`).join('') || '<p class="text-[10px] opacity-50 text-center uppercase tracking-widest font-bold py-4">No active breaks</p>';
+                <div class="flex justify-between items-center p-3 terminal-panel rounded-xl border border-white/5 mb-2">
+                    <div><span class="text-sm font-bold block">${b.agent_name}</span><span class="text-[9px] text-orange-400 uppercase font-bold tracking-widest">${b.break_type}</span></div>
+                    <div class="flex items-center gap-3"><span class="timer font-mono text-sm font-bold bg-black/50 px-2 py-1 rounded border border-white/5" data-start="${new Date(b.start_time).getTime()}"></span>
+                    <button onclick="endBreak('${b.user_id}')" class="text-[9px] bg-red-600/20 text-red-500 border border-red-500/50 px-3 py-1.5 rounded font-bold">TERM</button></div>
+                </div>`).join('') || '<p class="text-[9px] opacity-30 text-center uppercase tracking-widest font-bold py-4">No active breaks</p>';
         }
 
+        // --- Area Chart (Binance Style) ---
         function initChart() {
-            const ctx = document.getElementById('assetChart'); if(!ctx) return;
-            chartInst = new Chart(ctx, {
-                type: 'doughnut',
-                data: { labels: ['Equities', 'Crypto', 'Pre-IPO', 'Forex'], datasets: [{ data: [1,1,1,1], backgroundColor: ['#3b82f6', '#10b981', '#f59e0b', '#8b5cf6'], borderWidth: 0, cutout: '75%' }] },
-                options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'right', labels: {color: 'rgba(255,255,255,0.6)', font:{size:9}} } } }
+            const container = document.getElementById('tv-chart');
+            const chart = LightweightCharts.createChart(container, {
+                width: container.clientWidth, height: container.clientHeight,
+                layout: { background: { type: 'solid', color: 'transparent' }, textColor: 'rgba(255, 255, 255, 0.4)' },
+                grid: { vertLines: { color: 'rgba(255, 255, 255, 0.02)' }, horzLines: { color: 'rgba(255, 255, 255, 0.02)' } },
+                timeScale: { timeVisible: true, borderVisible: false }, rightPriceScale: { borderVisible: false }
             });
+            tvSeries = chart.addAreaSeries({
+                lineColor: '#2563eb', topColor: 'rgba(37, 99, 235, 0.4)', bottomColor: 'rgba(37, 99, 235, 0.0)', lineWidth: 2, crosshairMarkerRadius: 4
+            });
+            // Initial Flatline
+            const now = Math.floor(Date.now() / 1000);
+            tvSeries.setData([{time: now-60, value: 0}, {time: now, value: 0}]);
         }
 
-        function updateChartData(dailyDeals) {
-            if(!chartInst) return;
-            let eq=0, cr=0, pr=0, fx=0;
-            dailyDeals.forEach(d => {
-                if(d.asset_class === 'Equities') eq+=d.amount;
-                else if(d.asset_class === 'Crypto') cr+=d.amount;
-                else if(d.asset_class === 'SpaceX Pre-IPO' || d.asset_class === 'AI Data Centers') pr+=d.amount;
-                else fx+=d.amount;
+        function updateChartData(daily) {
+            if(!tvSeries || daily.length === 0) return;
+            // Build cumulative volume over time for the chart
+            let sorted = [...daily].sort((a,b) => new Date(a.created_at) - new Date(b.created_at));
+            let cumVol = 0; const data = [];
+            sorted.forEach(d => {
+                cumVol += d.amount;
+                // Add seconds to ensure unique timestamps for TradingView
+                const ts = Math.floor(new Date(d.created_at).getTime() / 1000);
+                // If multiple deals happen in same second, just take latest cumVol (simplified)
+                data.push({ time: ts, value: cumVol }); 
             });
-            if(eq===0 && cr===0 && pr===0 && fx===0) { eq=1; cr=1; pr=1; fx=1; } // default visual
-            chartInst.data.datasets[0].data = [eq, cr, pr, fx];
-            chartInst.update();
+            // Ensure strictly increasing time
+            const uniqueData = data.reduce((acc, current) => { const x = acc.find(item => item.time === current.time); if (!x) { return acc.concat([current]); } else { x.value = current.value; return acc; } }, []);
+            
+            if(uniqueData.length > 0) {
+                // Add current time to drag the line to the right edge
+                uniqueData.push({ time: Math.floor(Date.now() / 1000), value: cumVol });
+                tvSeries.setData(uniqueData);
+            }
         }
 
-        // --- Core Deal Actions ---
+        // --- Execute Flow ---
+        function addAmt(v) { const el = document.getElementById('f-amt'); el.value = (parseFloat(el.value) || 0) + v; tg.HapticFeedback.impactOccurred('light'); }
+        
         async function submitDeal(forceAgent = null) {
             const amt = parseFloat(document.getElementById('f-amt').value); if(!amt) return;
             const body = {
                 agent_name: forceAgent || tg.initDataUnsafe.user?.first_name || "Agent", amount: amt, client_id: document.getElementById('f-cid').value,
                 deal_type: document.getElementById('f-type').value, asset_class: document.getElementById('f-class').value, payment_method: document.getElementById('f-method').value
             };
-            document.getElementById('btn-submit').innerText = "EXECUTING...";
+            document.getElementById('btn-submit').innerText = "PROCESSING...";
             await fetch('/api/deal', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body)});
             
-            if(amt >= 10000) confetti({ particleCount: 300, spread: 160, origin: { y: 0.5 } });
-            tg.HapticFeedback.notificationOccurred('success'); 
-            closeModal('m-deal'); refreshData();
+            tg.HapticFeedback.notificationOccurred('success'); closeModal('m-deal'); fetchData(); // Force fetch immediately
         }
 
-        async function takeBreak(type) { await fetch('/api/break', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({user_id: tg.initDataUnsafe.user?.id || Date.now(), agent_name: tg.initDataUnsafe.user?.first_name || "Agent", break_type: type })}); refreshData(); }
-        async function endBreak(uid) { await fetch('/api/break/end', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({user_id: uid})}); refreshData(); }
+        async function takeBreak(type) { await fetch('/api/break', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({user_id: tg.initDataUnsafe.user?.id || Date.now(), agent_name: tg.initDataUnsafe.user?.first_name || "Agent", break_type: type })}); fetchData(); }
+        async function endBreak(uid) { await fetch('/api/break/end', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({user_id: uid})}); fetchData(); }
 
-        // --- God Mode Admin ---
+        // --- Admin Controls ---
         function openAdmin() { 
-            if(!adminPass) adminPass = prompt("God Mode Passcode:"); 
-            if(adminPass === "13012") {
-                document.getElementById('a-t-daily').value = cache.config.daily; 
-                openModal('m-admin'); renderAdminLedger();
-            } else { alert("Denied"); adminPass=''; }
+            if(!adminPass) adminPass = prompt("Root Access:"); 
+            if(adminPass === "13012") { document.getElementById('a-t-daily').value = cache.config.daily; openModal('m-admin'); renderAdminLedger(); } 
+            else { alert("Denied"); adminPass=''; }
         }
-
-        function setDefcon(level) { cache.config.defcon = level; saveAdmin(); }
 
         function renderAdminLedger() {
             const q = document.getElementById('a-search').value.toLowerCase();
-            const list = q ? cache.deals.filter(d => d.client_id.toLowerCase().includes(q) || d.agent_name.toLowerCase().includes(q)) : cache.deals.slice(0, 50); // Show last 50
+            const list = q ? cache.deals.filter(d => d.client_id.toLowerCase().includes(q) || d.agent_name.toLowerCase().includes(q)) : cache.deals.slice(0, 30);
             document.getElementById('a-ledger-list').innerHTML = list.map(d => `
-                <div onclick="openEdit(${d.id})" class="bg-black/50 p-3 rounded-xl flex justify-between items-center text-xs active:bg-white/10">
-                    <div><span class="font-bold text-sm">${d.agent_name}</span><br><span class="opacity-60">${d.client_id}</span></div>
-                    <span class="font-black text-amber-500">$${d.amount}</span>
+                <div onclick="openEdit(${d.id})" class="p-2 border-b border-white/5 flex justify-between items-center text-[10px] font-mono active:bg-white/10 cursor-pointer">
+                    <div><span class="text-blue-400">${d.agent_name}</span> <span class="opacity-50">| ${d.client_id}</span></div>
+                    <span class="text-amber-500">$${d.amount}</span>
                 </div>`).join('');
         }
 
@@ -374,34 +385,30 @@
         async function updateDeal() {
             const d = cache.deals.find(x => x.id === currentEditId); d.amount = parseFloat(document.getElementById('e-amt').value); d.client_id = document.getElementById('e-cid').value;
             await fetch(`/api/admin/deal/${currentEditId}?password=13012`, {method:'PUT', headers:{'Content-Type':'application/json'}, body:JSON.stringify(d)});
-            closeModal('m-edit'); refreshData(); renderAdminLedger();
+            closeModal('m-edit'); fetchData(); renderAdminLedger();
         }
         
-        async function deleteDeal() {
-            if(confirm("Void deal?")) { await fetch(`/api/admin/deal/${currentEditId}?password=13012`, {method:'DELETE'}); closeModal('m-edit'); refreshData(); renderAdminLedger(); }
-        }
+        async function deleteDeal() { if(confirm("Void order?")) { await fetch(`/api/admin/deal/${currentEditId}?password=13012`, {method:'DELETE'}); closeModal('m-edit'); fetchData(); renderAdminLedger(); } }
 
         async function saveAdmin() {
             cache.config.daily = parseInt(document.getElementById('a-t-daily').value);
             await fetch('/api/admin/config', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({password: adminPass, config: cache.config})}); 
-            refreshData();
+            fetchData();
         }
 
-        function ghostDeal() { const agent = prompt("Enter exact Agent Name:"); if(agent) { document.getElementById('m-admin').classList.add('hidden'); openModal('m-deal'); document.getElementById('m-deal').dataset.ghost = agent; } }
-        async function executeDanger(act) { if(confirm("Are you sure?")) { await fetch(`/api/admin/danger/${act}`, {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({password: adminPass})}); alert("Executed"); refreshData(); } }
+        async function executeDanger(act) { if(confirm("Override confirm?")) { await fetch(`/api/admin/danger/${act}`, {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({password: adminPass})}); alert("Executed"); fetchData(); } }
 
-        // --- UI Utils ---
+        // --- Terminal Utils ---
         function copyToClip(txt) { navigator.clipboard.writeText(txt); tg.showAlert("Copied to clipboard!"); }
-        function openModal(id) { isUIBlocked = true; document.getElementById(id).classList.remove('hidden'); if(id==='m-deal'){document.getElementById('btn-submit').innerText="CONFIRM EXECUTION"; document.querySelectorAll('#m-deal input').forEach(i=>i.value=''); document.getElementById('m-deal').dataset.ghost='';} tg.HapticFeedback.impactOccurred('light'); }
+        function openModal(id) { isUIBlocked = true; document.getElementById(id).classList.remove('hidden'); if(id==='m-deal'){document.getElementById('btn-submit').innerText="SUBMIT ORDER"; document.querySelectorAll('#m-deal input').forEach(i=>i.value='');} tg.HapticFeedback.impactOccurred('light'); }
         function closeModal(id) { document.getElementById(id).classList.add('hidden'); isUIBlocked = false; }
         function nav(p) { document.querySelectorAll('.page').forEach(el => el.classList.remove('active')); document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active')); document.getElementById(`tab-${p}`).classList.add('active'); document.getElementById(`n-${p}`).classList.add('active'); tg.HapticFeedback.impactOccurred('light'); }
         
-        // Timer for breaks
-        setInterval(() => {
+        function updateLocalClock() {
+            const d = new Date();
+            document.getElementById('server-time').innerText = d.toISOString().split('T')[1].split('.')[0] + ' UTC';
             document.querySelectorAll('.timer').forEach(el => { const e = (Date.now() - parseInt(el.dataset.start)) / 60000; el.innerText = `${Math.floor(e).toString().padStart(2,'0')}:${Math.floor((e%1)*60).toString().padStart(2,'0')}`; });
-        }, 1000);
-
-        const originalSubmit = submitDeal; submitDeal = async function() { const ghost = document.getElementById('m-deal').dataset.ghost; await originalSubmit(ghost || null); }
+        }
     </script>
 </body>
 </html>
