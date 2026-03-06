@@ -23,15 +23,18 @@ async def home():
 
 @app.get("/api/dashboard")
 async def get_dashboard():
-    # Only pull today's data to keep the app blazing fast
-    today = datetime.now(timezone.utc).strftime('%Y-%m-%d')
-    
-    return {
-        "deals": supabase.table("deals").select("*").gte("created_at", today).order('created_at', desc=True).execute().data,
-        "active_breaks": supabase.table("active_breaks").select("*").execute().data,
-        "break_logs": supabase.table("break_logs").select("*").gte("created_at", today).execute().data,
-        "settings": supabase.table("settings").select("value").eq("key", "system").execute().data[0]['value']
-    }
+    # Only pull the last 24 hours to ensure the app never lags
+    window = (datetime.now(timezone.utc) - timedelta(days=1)).isoformat()
+    try:
+        deals = supabase.table("deals").select("*").gte("created_at", window).order('created_at', desc=True).execute().data
+        breaks = supabase.table("active_breaks").select("*").execute().data
+        logs = supabase.table("break_logs").select("*").gte("created_at", window).execute().data
+        settings_req = supabase.table("settings").select("value").eq("key", "system").execute().data
+        settings = settings_req[0]['value'] if settings_req else {"target": 50000, "broadcast": ""}
+        
+        return {"status": "ok", "deals": deals, "active_breaks": breaks, "break_logs": logs, "settings": settings}
+    except Exception as e:
+        return {"status": "error", "message": str(e)}
 
 @app.post("/api/deal")
 async def add_deal(deal: DealModel):
@@ -65,9 +68,9 @@ async def end_break(data: dict):
         duration = int((datetime.now(timezone.utc) - start_time).total_seconds() / 60)
         supabase.table("break_logs").insert({
             "user_id": b["user_id"], "agent_name": b["agent_name"], 
-            "break_type": b["break_type"], "duration_mins": max(1, duration) # Minimum 1 min deduction
+            "break_type": b["break_type"], "duration_mins": max(1, duration)
         }).execute()
-    supabase.table("active_breaks").delete().eq("user_id", data["user_id"]).execute()
+        supabase.table("active_breaks").delete().eq("user_id", data["user_id"]).execute()
     return {"status": "ok"}
 
 @app.post("/api/admin/settings")
