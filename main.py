@@ -13,11 +13,9 @@ class DealModel(BaseModel):
     agent_name: str
     amount: float
     client_id: str
+    client_email: str
     deal_type: str
-    asset_class: str
     payment_method: str
-    tag: str = "Standard"
-    notes: str = ""
 
 @app.get("/", response_class=HTMLResponse)
 async def home():
@@ -25,29 +23,20 @@ async def home():
 
 @app.get("/api/dashboard")
 async def get_dashboard():
-    window = (datetime.now(timezone.utc) - timedelta(days=30)).isoformat()
+    # Only pull today's data to keep the app blazing fast
+    today = datetime.now(timezone.utc).strftime('%Y-%m-%d')
     
-    default_config = {
-        "daily": 50000, 
-        "allocations": {"SpaceX Pre-IPO": 500000, "AI Data Centers": 150000},
-        "force_refresh": 0
-    }
-    
-    config_data = supabase.table("settings").select("value").eq("key", "system_config").execute().data
-    config = config_data[0]['value'] if config_data else default_config
-
     return {
-        "deals": supabase.table("deals").select("*").gte("created_at", window).order('created_at', desc=True).execute().data,
+        "deals": supabase.table("deals").select("*").gte("created_at", today).order('created_at', desc=True).execute().data,
         "active_breaks": supabase.table("active_breaks").select("*").execute().data,
-        "chat": supabase.table("floor_chat").select("*").order('created_at', desc=True).limit(30).execute().data,
-        "config": config,
-        "server_time": datetime.now(timezone.utc).isoformat()
+        "break_logs": supabase.table("break_logs").select("*").gte("created_at", today).execute().data,
+        "settings": supabase.table("settings").select("value").eq("key", "system").execute().data[0]['value']
     }
 
 @app.post("/api/deal")
 async def add_deal(deal: DealModel):
     supabase.table("deals").insert(deal.model_dump()).execute()
-    return {"status": "success"}
+    return {"status": "ok"}
 
 @app.put("/api/admin/deal/{id}")
 async def update_deal(id: int, update: DealModel, password: str):
@@ -65,24 +54,26 @@ async def delete_deal(id: int, password: str):
 async def start_break(data: dict):
     data["start_time"] = datetime.now(timezone.utc).isoformat()
     supabase.table("active_breaks").upsert(data).execute()
-    return {"status": "success"}
+    return {"status": "ok"}
 
 @app.post("/api/break/end")
 async def end_break(data: dict):
+    active = supabase.table("active_breaks").select("*").eq("user_id", data["user_id"]).execute().data
+    if active:
+        b = active[0]
+        start_time = datetime.fromisoformat(b["start_time"].replace("Z", "+00:00"))
+        duration = int((datetime.now(timezone.utc) - start_time).total_seconds() / 60)
+        supabase.table("break_logs").insert({
+            "user_id": b["user_id"], "agent_name": b["agent_name"], 
+            "break_type": b["break_type"], "duration_mins": max(1, duration) # Minimum 1 min deduction
+        }).execute()
     supabase.table("active_breaks").delete().eq("user_id", data["user_id"]).execute()
-    return {"status": "success"}
-
-@app.post("/api/admin/config")
-async def update_config(data: dict):
-    if data.get("password") != "13012": raise HTTPException(status_code=403)
-    supabase.table("settings").upsert({"key": "system_config", "value": data["config"]}).execute()
     return {"status": "ok"}
 
-@app.post("/api/admin/danger/{action}")
-async def danger_zone(action: str, data: dict):
+@app.post("/api/admin/settings")
+async def update_settings(data: dict):
     if data.get("password") != "13012": raise HTTPException(status_code=403)
-    if action == "clear_breaks":
-        supabase.table("active_breaks").delete().neq("user_id", 0).execute()
+    supabase.table("settings").upsert({"key": "system", "value": data["settings"]}).execute()
     return {"status": "ok"}
 
 if __name__ == "__main__":
